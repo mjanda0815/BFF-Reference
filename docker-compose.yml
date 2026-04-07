@@ -1,0 +1,153 @@
+services:
+  keycloak:
+    build:
+      context: ./keycloak
+    container_name: bff-keycloak
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - bff-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: bff-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - bff-net
+
+  user-service:
+    build:
+      context: ./services/user-service
+    container_name: bff-user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/bff-demo}
+      SERVER_PORT: "8081"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - bff-net
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: bff-notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/bff-demo}
+      SERVER_PORT: "8082"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - bff-net
+
+  activity-service:
+    build:
+      context: ./services/activity-service
+    container_name: bff-activity-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/bff-demo}
+      SERVER_PORT: "8083"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - bff-net
+
+  bff:
+    build:
+      context: ./bff
+    container_name: bff-app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: "8090"
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://keycloak:8080/realms/bff-demo}
+      KEYCLOAK_PUBLIC_ISSUER_URI: ${KEYCLOAK_PUBLIC_ISSUER_URI:-http://localhost:8080/realms/bff-demo}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-bff-client}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-bff-client-secret}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      BFF_FRONTEND_ORIGIN: ${BFF_FRONTEND_ORIGIN:-http://localhost}
+      BFF_SESSION_TIMEOUT_SECONDS: ${BFF_SESSION_TIMEOUT_SECONDS:-1800}
+      BFF_COOKIE_SECURE: ${BFF_COOKIE_SECURE:-false}
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://user-service:8081}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL:-http://notification-service:8082}
+      ACTIVITY_SERVICE_URL: ${ACTIVITY_SERVICE_URL:-http://activity-service:8083}
+    ports:
+      - "8090:8090"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+      activity-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - bff-net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: bff-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      bff:
+        condition: service_healthy
+    networks:
+      - bff-net
+
+networks:
+  bff-net:
+    driver: bridge

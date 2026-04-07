@@ -1,0 +1,42 @@
+# Build outputs
+target/
+build/
+dist/
+out/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# Node / Angular
+node_modules/
+.angular/
+.nx/
+npm-debug.log
+yarn-error.log
+package-lock.json.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.local
+*.local
+
+# Logs
+logs/
+*.log
+
+# Test reports
+**/site/jacoco/
+**/coverage/
+**/test-results/

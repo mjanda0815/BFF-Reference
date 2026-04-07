@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java --version)",
+      "Bash(mvn --version)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(mvn -q -B -ntp -DskipTests package)",
+      "Bash(mvn -B -ntp test)",
+      "Bash(mvn -q -B -ntp test)"
+    ]
+  }
+}
