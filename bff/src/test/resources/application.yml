@@ -1,7 +1,3 @@
-bff:
-  session:
-    redis-enabled: false
-
 spring:
   autoconfigure:
     exclude:
@@ -14,7 +10,6 @@ spring:
       client:
         provider:
           keycloak:
-            issuer-uri: https://auth.example.invalid/realms/test
             authorization-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/auth
             token-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/token
             jwk-set-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/certs
@@ -30,6 +25,8 @@ spring:
             scope: openid,profile,email
 
 bff:
+  session:
+    redis-enabled: false
   frontend-origin: http://localhost
   session-timeout-seconds: 1800
   cookie-secure: false
