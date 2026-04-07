@@ -5,11 +5,12 @@ server:
 spring:
   application:
     name: activity-service
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/bff-demo}
+
+# JWT decoding configuration. JWKS via the internal docker network; `iss` validated against
+# the public URL that Keycloak stamps into tokens.
+keycloak:
+  jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/bff-demo/protocol/openid-connect/certs}
+  expected-issuer: ${KEYCLOAK_EXPECTED_ISSUER:http://host.docker.internal:8080/realms/bff-demo}
 
 management:
   endpoints:

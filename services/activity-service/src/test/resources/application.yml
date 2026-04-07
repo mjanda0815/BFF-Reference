@@ -1,4 +1,10 @@
 spring:
+  main:
+    allow-bean-definition-overriding: true
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+
+keycloak:
+  jwk-set-uri: http://test-keycloak.invalid/realms/test/protocol/openid-connect/certs
+  expected-issuer: http://test-keycloak.invalid/realms/test
