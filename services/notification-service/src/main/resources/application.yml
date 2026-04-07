@@ -10,7 +10,7 @@ spring:
 # the public URL that Keycloak stamps into tokens.
 keycloak:
   jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/bff-demo/protocol/openid-connect/certs}
-  expected-issuer: ${KEYCLOAK_EXPECTED_ISSUER:http://host.docker.internal:8080/realms/bff-demo}
+  expected-issuer: ${KEYCLOAK_EXPECTED_ISSUER:http://localhost:8080/realms/bff-demo}
 
 management:
   endpoints:
