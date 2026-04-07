@@ -5,7 +5,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { DashboardData } from '../../core/models/dashboard.model';
 import { UserProfileWidgetComponent } from './user-profile-widget/user-profile-widget.component';
@@ -114,7 +113,6 @@ import { ActivityWidgetComponent } from './activity-widget/activity-widget.compo
 })
 export class DashboardComponent implements OnInit {
   private readonly dashboardService = inject(DashboardService);
-  private readonly http = inject(HttpClient);
 
   readonly data = signal<DashboardData | null>(null);
   readonly loading = signal<boolean>(true);
@@ -142,21 +140,38 @@ export class DashboardComponent implements OnInit {
   }
 
   /**
-   * Logs the user out via the BFF. The HttpClient automatically attaches the
-   * X-XSRF-TOKEN header read from the XSRF-TOKEN cookie. After Spring Security
-   * processes the logout it redirects to Keycloak; we follow up by sending the
-   * browser back to the SPA root which will trigger a fresh login flow.
+   * Logs the user out via the BFF.
+   *
+   * Spring Security responds to POST /logout with a 302 to Keycloak's end_session_endpoint
+   * so the SSO session is terminated too. An XHR POST would swallow that redirect (fetch
+   * cannot trigger a cross-origin top-level navigation), so we instead submit a real HTML
+   * form: the browser then follows the 302 naturally, lands on Keycloak's logout page, and
+   * finally comes back to the SPA root.
+   *
+   * The CSRF token is read from the XSRF-TOKEN cookie and attached as a hidden _csrf input.
    */
   logout(): void {
-    this.http
-      .post('/logout', null, { withCredentials: true, observe: 'response' })
-      .subscribe({
-        next: () => {
-          window.location.href = '/';
-        },
-        error: () => {
-          window.location.href = '/';
-        },
-      });
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/logout';
+
+    const csrf = this.readCookie('XSRF-TOKEN');
+    if (csrf) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = '_csrf';
+      input.value = csrf;
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  private readCookie(name: string): string | null {
+    const match = document.cookie.match(
+      new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'),
+    );
+    return match ? decodeURIComponent(match[1]) : null;
   }
 }

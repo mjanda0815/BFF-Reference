@@ -8,10 +8,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.DelegatingServerLogoutHandler;
-import org.springframework.security.web.server.authentication.logout.RedirectServerLogoutSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.SecurityContextServerLogoutHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
@@ -19,7 +20,7 @@ import org.springframework.security.web.server.authentication.logout.WebSessionS
 import org.springframework.security.web.server.authorization.HttpStatusServerAccessDeniedHandler;
 import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
 import org.springframework.security.web.server.csrf.CsrfToken;
-import org.springframework.security.web.server.csrf.XorServerCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
@@ -53,10 +54,17 @@ public class SecurityConfig {
   }
 
   @Bean
-  SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+  SecurityWebFilterChain springSecurityFilterChain(
+      ServerHttpSecurity http,
+      ReactiveClientRegistrationRepository clientRegistrationRepository) {
 
-    XorServerCsrfTokenRequestAttributeHandler csrfHandler =
-        new XorServerCsrfTokenRequestAttributeHandler();
+    // Plain (non-XOR) handler: the SPA reads the raw token from the XSRF-TOKEN cookie and
+    // echoes it back as the X-XSRF-TOKEN header. XorServerCsrfTokenRequestAttributeHandler
+    // would expect an XOR-masked token in the header and reject raw values with 403. BREACH
+    // protection (the reason the XOR handler exists) is only relevant when the token is
+    // rendered into an HTML response body, which this pure SPA never does.
+    ServerCsrfTokenRequestAttributeHandler csrfHandler =
+        new ServerCsrfTokenRequestAttributeHandler();
     csrfHandler.setTokenFromMultipartDataEnabled(false);
 
     CookieServerCsrfTokenRepository csrfTokenRepository =
@@ -105,7 +113,7 @@ public class SecurityConfig {
                 logout
                     .logoutUrl("/logout")
                     .logoutHandler(combinedLogoutHandler())
-                    .logoutSuccessHandler(localLogoutSuccessHandler()))
+                    .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)))
         .addFilterAfter(csrfCookieEnsuringFilter(), SecurityWebFiltersOrder.CSRF);
 
     return http.build();
@@ -134,15 +142,16 @@ public class SecurityConfig {
   }
 
   /**
-   * Logout success handler that redirects the browser to the frontend root. RP-initiated logout
-   * (redirecting the browser to Keycloak's {@code end_session_endpoint}) is deliberately not used
-   * because the OIDC discovery document returned by Keycloak contains an internal docker hostname
-   * that the browser cannot resolve. Token revocation and Redis cleanup happen server-side in
-   * {@link SessionInvalidationHandler} before this handler runs.
+   * RP-initiated logout: after the local session and Redis state are cleaned up, the browser is
+   * redirected to Keycloak's {@code end_session_endpoint} so the SSO session is terminated too.
+   * The {@link KeycloakClientRegistrationConfig} wires that endpoint to the public (browser-
+   * facing) Keycloak URL so this redirect actually works from outside the docker network.
    */
-  private ServerLogoutSuccessHandler localLogoutSuccessHandler() {
-    RedirectServerLogoutSuccessHandler handler = new RedirectServerLogoutSuccessHandler();
-    handler.setLogoutSuccessUrl(URI.create(properties.getFrontendOrigin() + FRONTEND_DASHBOARD_PATH));
+  private ServerLogoutSuccessHandler oidcLogoutSuccessHandler(
+      ReactiveClientRegistrationRepository clientRegistrationRepository) {
+    OidcClientInitiatedServerLogoutSuccessHandler handler =
+        new OidcClientInitiatedServerLogoutSuccessHandler(clientRegistrationRepository);
+    handler.setPostLogoutRedirectUri(properties.getFrontendOrigin() + FRONTEND_DASHBOARD_PATH);
     return handler;
   }
 
