@@ -40,3 +40,4 @@ logs/
 **/site/jacoco/
 **/coverage/
 **/test-results/
+".claude/settings.local.json" 
