@@ -41,3 +41,4 @@ logs/
 **/coverage/
 **/test-results/
 ".claude/settings.local.json" 
+".claude/" 
