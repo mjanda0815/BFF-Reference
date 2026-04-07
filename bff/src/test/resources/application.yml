@@ -1,0 +1,39 @@
+bff:
+  session:
+    redis-enabled: false
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.springframework.boot.autoconfigure.session.SessionAutoConfiguration
+
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: https://auth.example.invalid/realms/test
+            authorization-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/auth
+            token-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/token
+            jwk-set-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/certs
+            user-info-uri: https://auth.example.invalid/realms/test/protocol/openid-connect/userinfo
+            user-name-attribute: preferred_username
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: test-client
+            client-secret: test-secret
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email
+
+bff:
+  frontend-origin: http://localhost
+  session-timeout-seconds: 1800
+  cookie-secure: false
+  user-service-url: http://user-service
+  notification-service-url: http://notification-service
+  activity-service-url: http://activity-service
+  service-timeout-millis: 2000

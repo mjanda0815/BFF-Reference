@@ -7,7 +7,11 @@
       "Bash(git config:*)",
       "Bash(mvn -q -B -ntp -DskipTests package)",
       "Bash(mvn -B -ntp test)",
-      "Bash(mvn -q -B -ntp test)"
+      "Bash(mvn -q -B -ntp test)",
+      "Bash(mvn -q -B -ntp -DskipTests compile)",
+      "Bash(mvn -B -ntp -DskipTests compile)",
+      "Bash(grep -l \"SecurityConfigTest\" /mnt/c/dev/bff-reference/bff/target/surefire-reports/*.txt)",
+      "Bash(mvn -B -ntp test -Dtest=SecurityConfigTest)"
     ]
   }
 }

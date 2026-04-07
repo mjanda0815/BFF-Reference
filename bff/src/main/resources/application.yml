@@ -1,0 +1,75 @@
+server:
+  port: ${SERVER_PORT:8090}
+  forward-headers-strategy: framework
+  netty:
+    connection-timeout: 5s
+
+spring:
+  application:
+    name: bff
+  threads:
+    virtual:
+      enabled: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+
+  session:
+    redis:
+      namespace: bff:session
+      flush-mode: on_save
+    timeout: ${BFF_SESSION_TIMEOUT_SECONDS:1800}s
+
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/bff-demo}
+            user-name-attribute: preferred_username
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: ${KEYCLOAK_CLIENT_ID:bff-client}
+            client-secret: ${KEYCLOAK_CLIENT_SECRET:bff-client-secret}
+            authorization-grant-type: authorization_code
+            scope: openid,profile,email
+            client-name: Keycloak
+
+# BFF-specific configuration (driven via .env in docker compose)
+bff:
+  frontend-origin: ${BFF_FRONTEND_ORIGIN:http://localhost}
+  session-timeout-seconds: ${BFF_SESSION_TIMEOUT_SECONDS:1800}
+  cookie-secure: ${BFF_COOKIE_SECURE:false}
+  user-service-url: ${USER_SERVICE_URL:http://user-service:8081}
+  notification-service-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8082}
+  activity-service-url: ${ACTIVITY_SERVICE_URL:http://activity-service:8083}
+  service-timeout-millis: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# Logging — never lower oauth2 / security loggers below INFO to avoid token leakage.
+logging:
+  level:
+    root: INFO
+    com.example.bff: INFO
+    org.springframework.security: INFO
+    org.springframework.security.oauth2: INFO
+    org.springframework.web: INFO
+    reactor.netty.http.client: WARN
