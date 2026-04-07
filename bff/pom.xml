@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
+    <groupId>io.janda</groupId>
     <artifactId>bff</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
@@ -179,7 +179,7 @@
                                 <rule>
                                     <element>BUNDLE</element>
                                     <excludes>
-                                        <exclude>com.example.bff.BffApplication</exclude>
+                                        <exclude>io.janda.bff.BffApplication</exclude>
                                     </excludes>
                                     <limits>
                                         <limit>
@@ -196,9 +196,9 @@
                                 </rule>
                             </rules>
                             <excludes>
-                                <exclude>com/example/bff/BffApplication.class</exclude>
-                                <exclude>com/example/bff/adapter/web/dto/**</exclude>
-                                <exclude>com/example/bff/domain/model/**</exclude>
+                                <exclude>io/janda/bff/BffApplication.class</exclude>
+                                <exclude>io/janda/bff/adapter/web/dto/**</exclude>
+                                <exclude>io/janda/bff/domain/model/**</exclude>
                             </excludes>
                         </configuration>
                     </execution>

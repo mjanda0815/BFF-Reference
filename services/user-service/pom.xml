@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
+    <groupId>io.janda</groupId>
     <artifactId>user-service</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
