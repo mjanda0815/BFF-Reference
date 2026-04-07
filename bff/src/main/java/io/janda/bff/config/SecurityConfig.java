@@ -8,11 +8,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
-import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.DelegatingServerLogoutHandler;
+import org.springframework.security.web.server.authentication.logout.RedirectServerLogoutSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.SecurityContextServerLogoutHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
@@ -54,8 +53,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  SecurityWebFilterChain springSecurityFilterChain(
-      ServerHttpSecurity http, ReactiveClientRegistrationRepository clientRegistrationRepository) {
+  SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
 
     XorServerCsrfTokenRequestAttributeHandler csrfHandler =
         new XorServerCsrfTokenRequestAttributeHandler();
@@ -107,7 +105,7 @@ public class SecurityConfig {
                 logout
                     .logoutUrl("/logout")
                     .logoutHandler(combinedLogoutHandler())
-                    .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)))
+                    .logoutSuccessHandler(localLogoutSuccessHandler()))
         .addFilterAfter(csrfCookieEnsuringFilter(), SecurityWebFiltersOrder.CSRF);
 
     return http.build();
@@ -135,11 +133,16 @@ public class SecurityConfig {
         sessionInvalidationHandler);
   }
 
-  private ServerLogoutSuccessHandler oidcLogoutSuccessHandler(
-      ReactiveClientRegistrationRepository clientRegistrationRepository) {
-    OidcClientInitiatedServerLogoutSuccessHandler handler =
-        new OidcClientInitiatedServerLogoutSuccessHandler(clientRegistrationRepository);
-    handler.setPostLogoutRedirectUri(properties.getFrontendOrigin() + FRONTEND_DASHBOARD_PATH);
+  /**
+   * Logout success handler that redirects the browser to the frontend root. RP-initiated logout
+   * (redirecting the browser to Keycloak's {@code end_session_endpoint}) is deliberately not used
+   * because the OIDC discovery document returned by Keycloak contains an internal docker hostname
+   * that the browser cannot resolve. Token revocation and Redis cleanup happen server-side in
+   * {@link SessionInvalidationHandler} before this handler runs.
+   */
+  private ServerLogoutSuccessHandler localLogoutSuccessHandler() {
+    RedirectServerLogoutSuccessHandler handler = new RedirectServerLogoutSuccessHandler();
+    handler.setLogoutSuccessUrl(URI.create(properties.getFrontendOrigin() + FRONTEND_DASHBOARD_PATH));
     return handler;
   }
 

@@ -23,21 +23,9 @@ spring:
       flush-mode: on_save
     timeout: ${BFF_SESSION_TIMEOUT_SECONDS:1800}s
 
-  security:
-    oauth2:
-      client:
-        provider:
-          keycloak:
-            issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/bff-demo}
-            user-name-attribute: preferred_username
-        registration:
-          keycloak:
-            provider: keycloak
-            client-id: ${KEYCLOAK_CLIENT_ID:bff-client}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET:bff-client-secret}
-            authorization-grant-type: authorization_code
-            scope: openid,profile,email
-            client-name: Keycloak
+  # The OAuth2 client is wired up programmatically in KeycloakClientRegistrationConfig because
+  # the frontchannel (browser-facing) and backchannel (server-to-server) URLs differ — we cannot
+  # rely on auto-discovery alone.
 
 # BFF-specific configuration (driven via .env in docker compose)
 bff:
