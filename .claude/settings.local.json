@@ -13,7 +13,8 @@
       "Bash(grep -l \"SecurityConfigTest\" /mnt/c/dev/bff-reference/bff/target/surefire-reports/*.txt)",
       "Bash(mvn -B -ntp test -Dtest=SecurityConfigTest)",
       "Bash(git commit:*)",
-      "Bash(mvn -B -ntp -q test)"
+      "Bash(mvn -B -ntp -q test)",
+      "Bash(mvn -B -ntp verify)"
     ]
   }
 }
