@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>io.janda</groupId>
+    <groupId>de.bafa</groupId>
     <artifactId>user-service</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>

@@ -1,4 +1,4 @@
-package io.janda.userservice;
+package de.bafa.userservice;
 
 import static org.mockito.Mockito.mock;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
