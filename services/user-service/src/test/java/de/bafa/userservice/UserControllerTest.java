@@ -53,4 +53,19 @@ class UserControllerTest {
   void healthEndpointIsPublic() throws Exception {
     mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
   }
+
+  /**
+   * Covers the fallback branch in {@link UserController#me} where {@code preferred_username} is
+   * absent from the JWT and the subject claim must be used as display name. Kept as a dedicated
+   * test so the branch is documented explicitly — a team copying the service should see the
+   * claim fallback is an intentional, tested behavior.
+   */
+  @Test
+  void missingPreferredUsernameFallsBackToSubject() throws Exception {
+    mockMvc
+        .perform(get("/api/users/me").with(jwt().jwt(j -> j.subject("user-xyz"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.userId").value("user-xyz"))
+        .andExpect(jsonPath("$.displayName").value("user-xyz"));
+  }
 }
