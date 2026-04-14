@@ -1,68 +1,74 @@
-# ADR-004: Use Spring WebFlux for the BFF aggregation layer
+# ADR-004: Spring WebFlux für die Aggregationsschicht des BFF
 
-- **Status:** Accepted
-- **Date:** 2026-04-06
+- **Status:** Akzeptiert
+- **Datum:** 2026-04-06
 
-## Context
+## Kontext
 
-The BFF's main value-add is aggregating three downstream services in one
-request. For the `GET /api/dashboard` endpoint we want:
+Der zentrale Mehrwert des BFF ist das Aggregieren dreier Downstream-Services
+in einem Request. Für den Endpunkt `GET /api/dashboard` wollen wir:
 
-- All three downstream calls to run **in parallel**, not sequentially.
-- A per-service **timeout** so a slow service cannot block the whole
-  dashboard.
-- **Partial-failure tolerance**: if one service is down, return the other
-  two widgets plus a neutral placeholder instead of failing the request.
-- **Backpressure-friendly IO**, because most of what the BFF does is sit
-  on network sockets waiting for downstream responses.
+- alle drei Downstream-Aufrufe **parallel**, nicht sequenziell, laufen
+  lassen,
+- pro Service ein **Timeout**, damit ein langsamer Service nicht das
+  gesamte Dashboard blockiert,
+- **Fehlertoleranz bei Teilausfall**: Fällt ein Service aus, werden die
+  anderen beiden Widgets plus ein neutraler Platzhalter zurückgegeben,
+  statt den Request zu verwerfen,
+- **backpressure-freundliche IO**, weil der BFF fast ausschließlich auf
+  Netzwerk-Sockets wartet, bis Downstream-Antworten kommen.
 
-The two realistic choices on Spring Boot 3 are:
+Die beiden realistischen Optionen unter Spring Boot 3:
 
-1. **Spring MVC + `RestTemplate`/`RestClient`** with a thread pool that
-   fans out the calls via `CompletableFuture.supplyAsync`.
-2. **Spring WebFlux + `WebClient`** with reactive composition
+1. **Spring MVC + `RestTemplate`/`RestClient`** mit einem Thread-Pool,
+   der die Aufrufe per `CompletableFuture.supplyAsync` fan-outet.
+2. **Spring WebFlux + `WebClient`** mit reaktiver Komposition
    (`Mono.zip`, `timeout`, `onErrorResume`).
 
-## Decision
+## Entscheidung
 
-We use **Spring WebFlux** with `WebClient` for the BFF. The downstream
-microservices, in contrast, remain on the traditional servlet stack
-(`spring-boot-starter-web`) because their job is trivial and latency there
-is not the point.
+Wir verwenden **Spring WebFlux** mit `WebClient` für den BFF. Die
+Downstream-Microservices bleiben dagegen auf dem klassischen Servlet-Stack
+(`spring-boot-starter-web`), weil ihr Job trivial ist und Latenz dort
+keine Rolle spielt.
 
-## Consequences
+## Konsequenzen
 
-### Positive
+### Positiv
 
-- **Idiomatic parallel composition.** `Mono.zip(a, b, c)` runs the three
-  downstream calls concurrently without any manual thread-pool or future
-  bookkeeping. The resulting code reads like a specification of what the
-  endpoint does.
-- **Per-call `.timeout(Duration)` and `.onErrorResume(...)`.** Exactly the
-  operators we need for resilient aggregation — timeouts and partial
-  failure fall out of the reactor API rather than being bolted on.
-- **Few threads under load.** The BFF is IO-bound. WebFlux's event-loop
-  model needs a small fixed number of threads regardless of the number of
-  concurrent aggregations.
-- **First-class support for OAuth2 client.** Spring Security's reactive
-  `ServerOAuth2AuthorizedClientManager` integrates cleanly with `WebClient`
-  so access-token refresh is transparent to the aggregation service.
+- **Idiomatische parallele Komposition.** `Mono.zip(a, b, c)` führt die
+  drei Downstream-Aufrufe nebenläufig aus, ohne manuelle Thread-Pool-
+  oder Future-Buchhaltung. Der resultierende Code liest sich wie eine
+  Spezifikation dessen, was der Endpunkt tut.
+- **Pro Aufruf `.timeout(Duration)` und `.onErrorResume(...)`.** Genau
+  die Operatoren, die wir für resiliente Aggregation brauchen — Timeouts
+  und Teilausfall ergeben sich aus der Reactor-API, statt angeflanscht
+  werden zu müssen.
+- **Wenige Threads unter Last.** Der BFF ist IO-bound. Das Event-Loop-
+  Modell von WebFlux kommt mit einer kleinen, festen Anzahl Threads aus,
+  unabhängig von der Anzahl nebenläufiger Aggregationen.
+- **First-Class-Support für OAuth2-Client.** Spring Securitys reaktiver
+  `ServerOAuth2AuthorizedClientManager` integriert sich sauber mit
+  `WebClient`, sodass Access-Token-Refresh für den
+  Aggregation-Service transparent ist.
 
-### Negative
+### Negativ
 
-- **Reactive is a different programming model.** Stack traces, debugging
-  and blocking-by-accident are harder than with imperative code. The
-  aggregation service deliberately keeps the reactive surface small: the
-  application layer exposes `Mono<DashboardData>`, and nothing deeper in
-  the code blocks.
-- **Mixing with blocking libraries is dangerous.** We avoid it; everything
-  that talks to the outside world (Keycloak, downstream services, Redis
-  via Lettuce) is already non-blocking.
-- **Test authoring** uses `StepVerifier` / `WebTestClient` instead of the
-  more familiar `MockMvc`. Not a cost so much as a learning curve.
+- **Reaktiv ist ein anderes Programmiermodell.** Stack-Traces, Debugging
+  und versehentliches Blockieren sind schwieriger als in imperativem
+  Code. Der Aggregation-Service hält die reaktive Oberfläche bewusst
+  klein: die Application-Schicht exponiert `Mono<DashboardData>`, und
+  weiter unten im Code blockiert nichts.
+- **Mischen mit blockierenden Bibliotheken ist gefährlich.** Wir
+  vermeiden es; alles, was mit der Außenwelt spricht (Keycloak,
+  Downstream-Services, Redis über Lettuce), ist bereits non-blocking.
+- **Test-Autorenschaft** nutzt `StepVerifier` / `WebTestClient` statt
+  des vertrauteren `MockMvc`. Weniger ein Kostenpunkt als eine
+  Lernkurve.
 
-### Why the microservices stay on Spring MVC
+### Warum die Microservices bei Spring MVC bleiben
 
-Each microservice does a single database-free lookup. There is no
-aggregation and no meaningful IO to parallelize. Spring MVC is simpler for
-that job and keeps the servlet-based Resource Server configuration short.
+Jeder Microservice macht einen einzelnen datenbankfreien Lookup. Es gibt
+keine Aggregation und keine sinnvolle IO, die sich parallelisieren ließe.
+Spring MVC ist für diesen Job einfacher und hält die Servlet-basierte
+Resource-Server-Konfiguration kurz.

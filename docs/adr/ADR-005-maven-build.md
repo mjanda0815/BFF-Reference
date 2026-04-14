@@ -1,56 +1,69 @@
-# ADR-005: Use Maven as the build tool for all Java modules
+# ADR-005: Maven als Build-Tool für alle Java-Module
 
-- **Status:** Accepted
-- **Date:** 2026-04-06
+- **Status:** Akzeptiert
+- **Datum:** 2026-04-06 (aktualisiert 2026-04-14)
 
-## Context
+## Kontext
 
-The project contains four Java modules (BFF + three microservices) that
-need a build tool, dependency management, a test phase, a coverage gate
-and a container image build. The two realistic choices are **Maven** and
-**Gradle**.
+Das Projekt enthält vier Java-Module (BFF + drei Microservices), die ein
+Build-Tool, Dependency-Management, eine Test-Phase, ein Coverage-Gate und
+einen Container-Image-Build brauchen. Die beiden realistischen Optionen
+sind **Maven** und **Gradle**.
 
-## Decision
+## Entscheidung
 
-We use **Maven 3.9+** with one `pom.xml` per module. No multi-module
-reactor at the top level — each module is independent and has its own
-`mvn verify`, its own Dockerfile and its own JaCoCo gate.
+Wir verwenden **Maven 3.9+** mit einer `pom.xml` pro Modul sowie einem
+Aggregator-POM auf Root-Ebene (hinzugefügt in Version 1.0.0), damit der
+gesamte Stack mit einem einzigen `mvn verify` aus dem Repository-Root
+gebaut werden kann. Jedes Modul bleibt dabei eigenständig: eigenes
+Dockerfile, eigenes JaCoCo-Gate, eigene Dependencies — sodass ein Team,
+das nur ein einzelnes Modul als Blueprint übernehmen will, es ohne
+Reactor-Magie herausschneiden kann.
 
-## Consequences
+## Konsequenzen
 
-### Positive
+### Positiv
 
-- **Enterprise default.** Maven is by a wide margin the most common Java
-  build tool in regulated / enterprise environments. Everyone can read a
-  `pom.xml`; custom Gradle DSL is not a skill one can assume.
-- **Declarative and reproducible.** Given the same `pom.xml` and the same
-  Maven version, the build result is stable across machines and months.
-- **Stable plugin ecosystem.** The plugins we need —
+- **Enterprise-Standard.** Maven ist mit weitem Abstand das
+  verbreitetste Java-Build-Tool in regulierten/enterprise-Umgebungen.
+  Jede Person kann eine `pom.xml` lesen; eine eigene Gradle-DSL kann man
+  nicht voraussetzen.
+- **Deklarativ und reproduzierbar.** Gleiche `pom.xml` und gleiche
+  Maven-Version liefern dasselbe Build-Ergebnis — über Maschinen und
+  Monate hinweg.
+- **Stabiles Plugin-Ökosystem.** Die benötigten Plugins —
   `spring-boot-maven-plugin`, `maven-surefire-plugin`,
-  `maven-failsafe-plugin`, `jacoco-maven-plugin` — are all first-party or
-  mature third-party and rarely break between versions.
-- **Obvious unit vs integration test split.** Surefire picks up
-  `*Test.java`, Failsafe picks up `*IT.java`, and Failsafe runs in a
-  later lifecycle phase. No custom task wiring needed.
-- **Enforceable coverage gate.** `jacoco-maven-plugin` with the `check`
-  goal fails the build on a coverage drop, which is a hard requirement of
-  the project brief (≥ 80 % line, ≥ 70 % branch).
+  `maven-failsafe-plugin`, `jacoco-maven-plugin` — sind entweder
+  first-party oder ausgereift und brechen zwischen Versionen selten.
+- **Klare Trennung Unit- vs. Integrationstest.** Surefire erkennt
+  `*Test.java`, Failsafe erkennt `*IT.java`, Failsafe läuft in einer
+  späteren Lifecycle-Phase. Keine Custom-Task-Verdrahtung nötig.
+- **Durchsetzbares Coverage-Gate.** `jacoco-maven-plugin` mit dem
+  `check`-Goal lässt den Build bei sinkender Coverage fehlschlagen —
+  eine harte Projektanforderung (≥ 80 % Line, ≥ 70 % Branch).
+- **Optionaler Reactor-Build.** Der Root-`pom.xml` aggregiert die vier
+  Module als Reactor. `mvn verify` auf Root-Ebene baut und testet alles
+  auf einen Schlag; ein einzelnes Modul kann weiterhin isoliert gebaut
+  werden.
 
-### Negative
+### Negativ
 
-- **Verbose.** A working `pom.xml` for a Spring Boot WebFlux project with
-  coverage gates is 150+ lines. Gradle's Kotlin DSL is more compact.
-- **Slower than a well-tuned Gradle build**, especially for large
-  multi-module builds. For a project of this size the difference is not
-  material.
-- **Dependency conflict resolution is nearest-wins**, which occasionally
-  surprises. Mitigated by `<dependencyManagement>` for anything that
-  matters.
+- **Verbose.** Eine funktionierende `pom.xml` für ein Spring-Boot-
+  WebFlux-Projekt mit Coverage-Gates hat 150+ Zeilen. Gradles Kotlin-DSL
+  ist kompakter.
+- **Langsamer als ein gut abgestimmter Gradle-Build**, besonders bei
+  großen Multi-Module-Builds. Für ein Projekt dieser Größe ist der
+  Unterschied nicht relevant.
+- **Dependency-Conflict-Resolution ist Nearest-Wins**, was gelegentlich
+  überrascht. Abfedern über `<dependencyManagement>` für alles, worauf
+  es ankommt.
 
-### Rejected alternative: Gradle
+### Verworfene Alternative: Gradle
 
-- Strong build tool, especially for large and custom builds, but the
-  enterprise-default argument and the simplicity of the Maven lifecycle
-  for a project that has no unusual build requirements tipped the scale.
-- Also: the project brief explicitly lists Maven as the build tool for the
-  BFF, and using the same tool across all Java modules is more consistent.
+- Starkes Build-Tool, besonders für große und Custom-Builds, aber das
+  Enterprise-Standard-Argument und die Einfachheit des Maven-Lifecycles
+  für ein Projekt ohne ungewöhnliche Build-Anforderungen haben den
+  Ausschlag gegeben.
+- Außerdem: Der Projektauftrag listet Maven explizit als Build-Tool für
+  den BFF, und dasselbe Tool für alle Java-Module zu verwenden ist
+  konsistenter.

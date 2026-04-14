@@ -1,33 +1,36 @@
-# BFF Reference Architecture
+# BFF-Referenzarchitektur
 
-A runnable reference implementation of the **Backend-for-Frontend (BFF)** pattern
-with a token-free Angular SPA, Keycloak as Identity Provider, Redis-backed
-sessions and three aggregated downstream microservices.
+Eine lauffähige Referenzimplementierung des **Backend-for-Frontend (BFF)**-
+Patterns mit einer tokenfreien Angular-SPA, Keycloak als Identity Provider,
+Redis-basierten Sessions und drei aggregierten Downstream-Microservices.
 
-The goal of this project is to demonstrate enterprise-grade architecture
-patterns end-to-end — security, session handling, parallel aggregation,
-hexagonal layering, test coverage and accessibility — in a way that can be
-launched locally with a single command.
+Ziel dieses Projekts ist es, Enterprise-Architekturmuster durchgängig zu
+demonstrieren — Sicherheit, Session-Handling, parallele Aggregation,
+hexagonale Schichtung, Testabdeckung und Barrierefreiheit — so, dass sich
+alles mit einem einzigen Befehl lokal starten lässt.
 
-> **BAFA blueprint note.** This repository is maintained as a *reference template*
-> for new BAFA projects. All Java packages live under the `de.bafa.*` namespace
-> (e.g. `de.bafa.bff`, `de.bafa.userservice`) and Maven coordinates use the
-> `de.bafa` groupId. When copying a module as the starting point for a new
-> product, keep the role-based artifact names (`bff`, `user-service`, …) and
-> introduce a product-specific sub-namespace if needed (e.g.
-> `de.bafa.<produkt>.bff`). Every class carries a didactic JavaDoc that
-> explains the pattern it demonstrates — read the source, not just this README.
+> **Hinweis zum BAFA-Blueprint.** Dieses Repository wird als *Referenz-
+> Template* für neue BAFA-Projekte gepflegt. Alle Java-Packages liegen unter
+> dem Namespace `de.bafa.*` (z. B. `de.bafa.bff`, `de.bafa.userservice`),
+> die Maven-Koordinaten nutzen die groupId `de.bafa`. Wer ein Modul als
+> Ausgangspunkt für ein neues Produkt kopiert, behält die rollenbasierten
+> Artefaktnamen (`bff`, `user-service`, …) bei und führt bei Bedarf einen
+> produktspezifischen Unter-Namespace ein (z. B. `de.bafa.<produkt>.bff`).
+> Jede Klasse trägt ein didaktisches JavaDoc, das das jeweils demonstrierte
+> Pattern erklärt — nicht nur diese README, sondern auch den Quellcode
+> lesen.
 
 ---
 
-## Architecture at a glance
+## Architektur-Überblick
 
 ```
             ┌──────────────┐         ┌──────────────┐
-  Browser → │   Angular    │  ─────► │   nginx      │
-            │  (no tokens) │         │ (static SPA  │
-            └──────────────┘         │  + reverse   │
-                                     │   proxy)     │
+  Browser → │   Angular    │  ─────► │    nginx     │
+            │ (keine Token)│         │ (statische   │
+            └──────────────┘         │  SPA +       │
+                                     │  Reverse-    │
+                                     │   Proxy)     │
                                      └──────┬───────┘
                                             │ same-origin
                                             ▼
@@ -50,46 +53,49 @@ launched locally with a single command.
                 ┌──────────────┐    ┌──────────────┐        ┌──────────────┐
                 │ user-service │    │ notification │        │   activity   │
                 │   (REST,     │    │   service    │        │   service    │
-                │  JWT-secured)│    │  (REST,      │        │   (REST,     │
-                └──────────────┘    │  JWT-secured)│        │  JWT-secured)│
+                │ JWT-gesichert)│   │   (REST,     │        │   (REST,     │
+                └──────────────┘    │ JWT-gesichert)│       │ JWT-gesichert)│
                                     └──────────────┘        └──────────────┘
 ```
 
-A more detailed view (including sequence diagrams for login, API call and
-logout) lives in [`docs/architecture.md`](docs/architecture.md).
+Eine detailliertere Sicht (inklusive Sequenzdiagrammen für Login,
+API-Aufruf und Logout) liegt in
+[`docs/architecture.md`](docs/architecture.md).
 
 ---
 
-## Repository layout
+## Repository-Struktur
 
 ```
 bff-reference/
-├── pom.xml                     # aggregator POM — one `mvn verify` for the whole stack
-├── docker-compose.yml          # one-shot bring-up of the whole stack
-├── .env.example                # all configurable values
-├── keycloak/                   # realm export + Keycloak Dockerfile
+├── pom.xml                     # Aggregator-POM — ein `mvn verify` für alles
+├── docker-compose.yml          # kompletter Stack mit einem Befehl
+├── .env.example                # alle konfigurierbaren Werte
+├── keycloak/                   # Realm-Export + Keycloak-Dockerfile
 ├── bff/                        # Spring Boot 3 BFF (WebFlux) — de.bafa.bff
 ├── services/
 │   ├── user-service/           # Spring Boot 3 Resource Server — de.bafa.userservice
-│   ├── notification-service/   #                                  de.bafa.notificationservice
-│   └── activity-service/       #                                  de.bafa.activityservice
-├── frontend/                   # Angular 21 SPA, served by nginx
+│   ├── notification-service/   #                                 de.bafa.notificationservice
+│   └── activity-service/       #                                 de.bafa.activityservice
+├── frontend/                   # Angular 21 SPA, von nginx ausgeliefert
 └── docs/
     ├── architecture.md
     ├── security-concept.md
+    ├── confluence.md           # Confluence-taugliche Gesamtdoku
     └── adr/                    # Architecture Decision Records
 ```
 
 ---
 
-## Prerequisites
+## Voraussetzungen
 
-- Docker and Docker Compose (Compose v2)
-- Java 21 LTS  *(only required if you want to run `mvn verify` outside Docker)*
-- Maven 3.9+   *(ditto)*
-- Node 20+     *(only required for `ng build` outside Docker)*
+- Docker und Docker Compose (Compose v2)
+- Java 21 LTS  *(nur nötig, wenn `mvn verify` außerhalb von Docker laufen
+  soll)*
+- Maven 3.9+   *(dito)*
+- Node 20+     *(nur nötig für `ng build` außerhalb von Docker)*
 
-The Quickstart below needs **only Docker**.
+Der Quickstart unten braucht **nur Docker**.
 
 ---
 
@@ -100,144 +106,151 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Then open <http://localhost> in a browser and log in with the demo user:
+Dann <http://localhost> im Browser öffnen und mit dem Demo-Nutzer einloggen:
 
-| Username             | Password |
+| Benutzername         | Passwort |
 |----------------------|----------|
 | `demo@example.com`   | `demo123`|
 
-You should land on the dashboard which shows data from all three downstream
-services aggregated by the BFF in a single response.
+Du landest auf dem Dashboard, das Daten aus allen drei Downstream-Services
+in einer einzigen Antwort aggregiert zeigt — alles vom BFF zusammengesetzt.
 
-The Keycloak admin UI is reachable at <http://localhost:8080> with the
-credentials from `.env` (`KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD`,
-default `admin` / `admin`).
-
----
-
-## Why a BFF?
-
-The Backend-for-Frontend pattern places a server-side component between the
-SPA and the actual business APIs. In this project the BFF owns the entire
-OAuth2/OIDC dance with Keycloak, holds the access and refresh tokens in a
-server-side session store (Redis), and exposes a small, frontend-shaped HTTP
-API that the Angular app consumes via plain session cookies.
-
-The benefits we want to showcase:
-
-- **No tokens in the browser.** The SPA never sees an access token, refresh
-  token or id token. There is no `localStorage` / `sessionStorage` /
-  in-memory token cache that could be stolen by XSS.
-- **Aggregation in one place.** The dashboard view needs data from three
-  microservices. Doing the fan-out in the BFF (`Mono.zip`, parallel,
-  per-service timeout, partial-failure tolerant) keeps the SPA dumb and the
-  network round-trips low.
-- **Strong CSRF posture.** Because the SPA authenticates with cookies, we
-  combine `SameSite=Lax` with Spring Security's double-submit CSRF token. The
-  rationale lives in [`docs/security-concept.md`](docs/security-concept.md).
-- **A single security boundary.** Token validation, refresh handling and
-  logout invalidation all live in the BFF — the downstream services only
-  validate JWTs.
-
-The full rationale is captured as ADRs in [`docs/adr/`](docs/adr/).
+Die Keycloak-Admin-UI ist unter <http://localhost:8080> erreichbar, mit den
+Zugangsdaten aus `.env` (`KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD`,
+Default `admin` / `admin`).
 
 ---
 
-## Token-free frontend
+## Warum ein BFF?
 
-The Angular frontend deliberately does **not** depend on `angular-oauth2-oidc`
-or any other browser-side OIDC client. It only knows three things:
+Das Backend-for-Frontend-Pattern platziert eine serverseitige Komponente
+zwischen SPA und die eigentlichen Business-APIs. In diesem Projekt besitzt
+der BFF den gesamten OAuth2-/OIDC-Ablauf mit Keycloak, hält Access- und
+Refresh-Token in einem serverseitigen Session-Store (Redis) und exponiert
+der Angular-App eine kleine, frontend-geformte HTTP-API, die ausschließlich
+über Session-Cookies konsumiert wird.
 
-1. Send every API call with `withCredentials: true` so the session cookie is
-   attached automatically.
-2. If a response comes back with HTTP 401, navigate the browser to `/login`
-   and let the BFF start the OIDC Authorization Code Flow.
-3. For state-changing requests, send the CSRF token from the `XSRF-TOKEN`
-   cookie back as the `X-XSRF-TOKEN` header (Angular's `HttpClient` does this
-   transparently when configured with `withXsrfConfiguration`).
+Die Vorteile, die wir zeigen wollen:
 
-That is the entire authentication contract on the client side.
+- **Keine Tokens im Browser.** Die SPA sieht niemals ein Access-, Refresh-
+  oder ID-Token. Es gibt keinen `localStorage`-/`sessionStorage`-/
+  In-Memory-Token-Cache, der per XSS gestohlen werden könnte.
+- **Aggregation an einer Stelle.** Die Dashboard-Ansicht braucht Daten aus
+  drei Microservices. Der Fan-out im BFF (`Mono.zip`, parallel, Timeout
+  pro Service, fehlertolerant) hält die SPA dumm und die Netzwerk-
+  Round-Trips gering.
+- **Starke CSRF-Position.** Weil die SPA mit Cookies authentifiziert, wird
+  `SameSite=Lax` mit dem Double-Submit-CSRF-Token von Spring Security
+  kombiniert. Die Begründung liegt in
+  [`docs/security-concept.md`](docs/security-concept.md).
+- **Eine einzige Security-Boundary.** Token-Validierung, Refresh-Handling
+  und Logout-Invalidierung leben im BFF — die Downstream-Services
+  validieren lediglich JWTs.
+
+Die vollständige Begründung ist als ADRs in
+[`docs/adr/`](docs/adr/) festgehalten.
 
 ---
 
-## Session and cookie strategy
+## Tokenfreies Frontend
 
-| Property         | Value                    | Reason                                          |
-|------------------|--------------------------|-------------------------------------------------|
-| Cookie name      | `SESSION`                | Spring Session default                          |
-| `HttpOnly`       | `true`                   | Not accessible to JavaScript (XSS mitigation)   |
-| `Secure`         | `true` (`false` in dev)  | Force HTTPS in non-local environments           |
-| `SameSite`       | `Lax`                    | Survives top-level navigation from Keycloak     |
-| `Path`           | `/`                      | Whole BFF surface                               |
-| `Max-Age`        | `BFF_SESSION_TIMEOUT_SECONDS` | Aligned with Keycloak refresh token lifespan |
+Das Angular-Frontend hängt bewusst **nicht** von `angular-oauth2-oidc` oder
+einem anderen browserseitigen OIDC-Client ab. Es kennt nur drei Dinge:
 
-- The `SESSION` cookie stores only an opaque session id. The actual access
-  and refresh tokens live in **Redis**, keyed by that session id.
-- A second cookie `XSRF-TOKEN` carries the CSRF token (not `HttpOnly`, by
-  design — the SPA must read it to echo it back as a header).
-- Logout revokes the refresh token at Keycloak, deletes the Redis entry and
-  expires both cookies in the browser.
+1. Jeden API-Aufruf mit `withCredentials: true` senden, damit das Session-
+   Cookie automatisch angehängt wird.
+2. Kommt eine Antwort mit HTTP 401 zurück, den Browser zu `/login`
+   navigieren und den BFF den OIDC-Authorization-Code-Flow starten lassen.
+3. Bei zustandsändernden Requests das CSRF-Token aus dem `XSRF-TOKEN`-
+   Cookie als `X-XSRF-TOKEN`-Header zurücksenden (Angulars `HttpClient`
+   macht das transparent, wenn er mit `withXsrfConfiguration` konfiguriert
+   ist).
 
-For the threat model and the alternatives we considered, see
+Das ist der gesamte Authentifizierungs-Vertrag auf Client-Seite.
+
+---
+
+## Session- und Cookie-Strategie
+
+| Eigenschaft      | Wert                          | Grund                                                 |
+|------------------|-------------------------------|-------------------------------------------------------|
+| Cookie-Name      | `SESSION`                     | Spring-Session-Default                                |
+| `HttpOnly`       | `true`                        | Für JavaScript nicht erreichbar (XSS-Härtung)         |
+| `Secure`         | `true` (`false` in Dev)       | HTTPS erzwingen in Nicht-Lokalumgebungen              |
+| `SameSite`       | `Lax`                         | Überlebt Top-Level-Navigation von Keycloak            |
+| `Path`           | `/`                           | Gesamte BFF-Oberfläche                                |
+| `Max-Age`        | `BFF_SESSION_TIMEOUT_SECONDS` | Auf Keycloak-Refresh-Token-Laufzeit abgestimmt        |
+
+- Das `SESSION`-Cookie speichert nur eine opake Session-ID. Die
+  eigentlichen Access- und Refresh-Tokens leben in **Redis**, mit der
+  Session-ID als Schlüssel.
+- Ein zweites Cookie `XSRF-TOKEN` trägt das CSRF-Token (bewusst nicht
+  `HttpOnly` — die SPA muss es lesen und als Header zurückspiegeln können).
+- Beim Logout wird das Refresh-Token bei Keycloak revoziert, der
+  Redis-Eintrag gelöscht und beide Cookies im Browser abgelaufen.
+
+Threat-Modell und verworfene Alternativen siehe
 [`docs/security-concept.md`](docs/security-concept.md).
 
 ---
 
-## Redis layout
+## Redis-Layout
 
-The BFF uses Spring Session (`spring-session-data-redis`) which writes session
-state under keys of the form:
+Der BFF nutzt Spring Session (`spring-session-data-redis`) und schreibt
+Session-State unter Schlüsseln der Form:
 
 ```
-spring:session:sessions:<session-id>           # session attributes
-spring:session:expirations:<bucket>            # expiry index
-spring:session:sessions:expires:<session-id>   # per-session expiry marker
+spring:session:sessions:<session-id>           # Session-Attribute
+spring:session:expirations:<bucket>            # Ablauf-Index
+spring:session:sessions:expires:<session-id>   # Ablauf-Marker pro Session
 ```
 
-Inside the session attributes the OAuth2 access and refresh tokens are stored
-via Spring's `OAuth2AuthorizedClient` mechanism, never plain text in any other
-key.
+Innerhalb der Session-Attribute werden die OAuth2-Access- und Refresh-
+Tokens über den Spring-`OAuth2AuthorizedClient`-Mechanismus abgelegt —
+niemals im Klartext in irgendeinem anderen Key.
 
 ---
 
 ## Keycloak
 
-A complete realm export lives in `keycloak/realm-export.json` and is imported
-on container start via `start-dev --import-realm`. It contains:
+Ein vollständiger Realm-Export liegt in `keycloak/realm-export.json` und
+wird beim Container-Start über `start-dev --import-realm` importiert. Er
+enthält:
 
 - Realm `bff-demo`
-- Confidential client `bff-client` (Authorization Code Flow, secret from
+- Confidential-Client `bff-client` (Authorization-Code-Flow, Secret aus
   `.env`)
-- Test user `demo@example.com` / `demo123`
-- Brute-force protection enabled
-- Access token lifespan: 5 minutes; refresh token lifespan: 30 minutes
+- Testnutzer `demo@example.com` / `demo123`
+- Aktivierte Brute-Force-Protection
+- Access-Token-Laufzeit: 5 Minuten; Refresh-Token-Laufzeit: 30 Minuten
 
-The Keycloak admin UI is at <http://localhost:8080> using
-`KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` from `.env`.
+Die Keycloak-Admin-UI liegt unter <http://localhost:8080>, mit
+`KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` aus `.env`.
 
 ---
 
 ## Tests
 
-### Backend (BFF + services)
+### Backend (BFF + Services)
 
-The repository root holds an aggregator POM so the entire stack builds in one
-shot:
+Im Repository-Root liegt ein Aggregator-POM, sodass der komplette Stack
+mit einem Befehl gebaut wird:
 
 ```bash
-mvn verify         # builds and tests all four modules
+mvn verify         # baut und testet alle vier Module
 ```
 
-To work on a single module, run `mvn verify` inside that module's directory.
+Für die Arbeit an einem einzelnen Modul: `mvn verify` im Modulverzeichnis
+ausführen.
 
-`mvn verify` runs (per module):
+`mvn verify` führt (pro Modul) aus:
 
-- Unit tests (`*Test.java`, surefire)
-- Integration tests (`*IT.java`, failsafe, Testcontainers — BFF only)
-- JaCoCo coverage gate: ≥ 80 % line, ≥ 70 % branch — the build fails on
-  underrun. All four modules enforce the same thresholds so the blueprint
-  demonstrates a consistent quality bar; bootstrap classes and trivial
-  record DTOs are excluded from the gate.
+- Unit-Tests (`*Test.java`, Surefire)
+- Integrationstests (`*IT.java`, Failsafe, Testcontainers — nur BFF)
+- JaCoCo-Coverage-Gate: ≥ 80 % Line, ≥ 70 % Branch — der Build bricht bei
+  Unterschreitung. Alle vier Module erzwingen dieselben Schwellen, damit
+  das Blueprint eine konsistente Qualitätsgrenze demonstriert; Bootstrap-
+  Klassen und triviale Record-DTOs sind vom Gate ausgeschlossen.
 
 ### Frontend
 
@@ -247,54 +260,55 @@ npm ci
 npx ng build --configuration production
 ```
 
-For interactive component tests, `npm test` runs the Karma/Jest harness
-configured in `angular.json`.
+Für interaktive Komponententests führt `npm test` den in `angular.json`
+konfigurierten Karma-/Jest-Harness aus.
 
 ---
 
-## Accessibility (BITV 2.0 / WCAG 2.1 AA)
+## Barrierefreiheit (BITV 2.0 / WCAG 2.1 AA)
 
-Accessibility is treated as a hard requirement, not a nice-to-have:
+Barrierefreiheit wird als harte Anforderung behandelt, nicht als
+„nice-to-have":
 
-- Native semantic HTML (`header`, `main`, `nav`, `article`, `dl`, `button`)
-  is preferred over ARIA wrappers.
-- Every interactive element is reachable and operable by keyboard, with a
-  highly visible `:focus-visible` outline.
-- Loading and error states are exposed via `role="status"` /
-  `aria-live="polite"` so screen readers announce them.
-- Color palette and focus colors meet WCAG 2.1 AA contrast ratios in both
-  light and dark mode (`prefers-color-scheme`).
-- A skip-link allows keyboard users to bypass the header.
-- `prefers-reduced-motion` is respected.
-- No accessibility overlays — accessibility is implemented at the markup
-  level.
+- Natives, semantisches HTML (`header`, `main`, `nav`, `article`, `dl`,
+  `button`) statt ARIA-Wrapper.
+- Jedes interaktive Element ist per Tastatur erreichbar und bedienbar,
+  mit gut sichtbarem `:focus-visible`-Outline.
+- Lade- und Fehlerzustände werden über `role="status"` /
+  `aria-live="polite"` exponiert, damit Screenreader sie ansagen.
+- Farbpalette und Fokusfarben erfüllen WCAG-2.1-AA-Kontraste sowohl im
+  Light- als auch im Dark-Mode (`prefers-color-scheme`).
+- Ein Skip-Link erlaubt Tastatur-Nutzenden, den Header zu überspringen.
+- `prefers-reduced-motion` wird respektiert.
+- Keine Accessibility-Overlays — Barrierefreiheit wird auf Markup-Ebene
+  implementiert.
 
 ---
 
-## Architecture decisions
+## Architekturentscheidungen
 
-| ADR | Topic |
+| ADR | Thema |
 |-----|-------|
-| [ADR-001](docs/adr/ADR-001-bff-pattern.md) | Why BFF over direct SPA → API |
-| [ADR-002](docs/adr/ADR-002-session-cookie.md) | Why session cookie over browser-held tokens |
-| [ADR-003](docs/adr/ADR-003-redis-session-store.md) | Why Redis as session store |
-| [ADR-004](docs/adr/ADR-004-webflux-aggregation.md) | Why WebFlux for parallel aggregation |
-| [ADR-005](docs/adr/ADR-005-maven-build.md) | Why Maven over Gradle |
+| [ADR-001](docs/adr/ADR-001-bff-pattern.md) | Warum BFF statt direktem SPA → API |
+| [ADR-002](docs/adr/ADR-002-session-cookie.md) | Warum Session-Cookie statt Browser-Token |
+| [ADR-003](docs/adr/ADR-003-redis-session-store.md) | Warum Redis als Session-Store |
+| [ADR-004](docs/adr/ADR-004-webflux-aggregation.md) | Warum WebFlux für parallele Aggregation |
+| [ADR-005](docs/adr/ADR-005-maven-build.md) | Warum Maven statt Gradle |
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `docker compose up` hangs on `keycloak` healthcheck | First-time realm import takes ~30 s | Wait for `start_period`, then check `docker compose logs keycloak` |
-| Login redirects loop between `/login` and Keycloak | `KEYCLOAK_PUBLIC_ISSUER_URI` does not resolve from your browser | Make sure it points to `http://localhost:8080/...` and that port 8080 is published |
-| `403` on POST/PUT/DELETE | Missing or stale CSRF cookie | Reload the SPA — Angular re-reads `XSRF-TOKEN` and echoes it as header |
-| Dashboard widgets show "no data" | One downstream service is down | The BFF deliberately returns a partial response; check `docker compose ps` |
-| `mvn verify` fails on JaCoCo gate | Coverage dropped below threshold | Add tests; the threshold is 80 % line / 70 % branch by design |
+| Symptom | Wahrscheinliche Ursache | Lösung |
+|---------|-------------------------|--------|
+| `docker compose up` hängt beim `keycloak`-Healthcheck | Der erste Realm-Import dauert ~30 s | `start_period` abwarten, dann `docker compose logs keycloak` prüfen |
+| Login-Schleife zwischen `/login` und Keycloak | `KEYCLOAK_PUBLIC_ISSUER_URI` ist aus deinem Browser nicht auflösbar | Sicherstellen, dass er auf `http://localhost:8080/...` zeigt und Port 8080 publiziert ist |
+| `403` bei POST/PUT/DELETE | Fehlendes oder veraltetes CSRF-Cookie | SPA neu laden — Angular liest `XSRF-TOKEN` neu und spiegelt es als Header |
+| Dashboard-Widgets zeigen „keine Daten" | Ein Downstream-Service ist unten | Der BFF liefert bewusst eine partielle Antwort; `docker compose ps` prüfen |
+| `mvn verify` scheitert am JaCoCo-Gate | Coverage unter Schwelle gefallen | Tests ergänzen; die Schwelle ist per Design 80 % Line / 70 % Branch |
 
 ---
 
-## License
+## Lizenz
 
-This is a reference / educational project. Use at your own risk.
+Dies ist ein Referenz-/Lehrprojekt. Nutzung auf eigenes Risiko.
