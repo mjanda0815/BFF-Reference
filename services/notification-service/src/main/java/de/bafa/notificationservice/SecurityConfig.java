@@ -1,4 +1,4 @@
-package io.janda.notificationservice;
+package de.bafa.notificationservice;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
