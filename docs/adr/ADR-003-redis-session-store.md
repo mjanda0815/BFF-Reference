@@ -1,67 +1,71 @@
-# ADR-003: Use Redis as the session store
+# ADR-003: Redis als Session-Store
 
-- **Status:** Accepted
-- **Date:** 2026-04-06
+- **Status:** Akzeptiert
+- **Datum:** 2026-04-06
 
-## Context
+## Kontext
 
-The BFF holds per-user state: the Spring Security context, the
-`OAuth2AuthorizedClient` (access token + refresh token + expiry) and any
-CSRF state. This state has to survive:
+Der BFF hält pro Nutzer Zustand: den Spring-Security-Context, den
+`OAuth2AuthorizedClient` (Access-Token + Refresh-Token + Ablauf) sowie
+CSRF-State. Dieser Zustand muss überleben:
 
-- the BFF process being restarted or redeployed,
-- the BFF running as **more than one instance** behind a load balancer,
-- a few minutes of client inactivity without forcing a re-login.
+- einen Neustart oder Redeploy des BFF-Prozesses,
+- den Betrieb des BFF in **mehreren Instanzen** hinter einem Load-Balancer,
+- einige Minuten Client-Inaktivität, ohne einen Re-Login zu erzwingen.
 
-Possible backing stores:
+Mögliche Backing-Stores:
 
-1. **In-memory** (default servlet `HttpSession`). Lost on restart, not
-   shared between instances.
-2. **JDBC** via `spring-session-jdbc`. Requires a database and pushes
-   session traffic through SQL, which is heavier than strictly necessary.
+1. **In-Memory** (Default-Servlet-`HttpSession`). Beim Neustart verloren,
+   nicht zwischen Instanzen geteilt.
+2. **JDBC** via `spring-session-jdbc`. Erfordert eine Datenbank und
+   leitet Session-Traffic durch SQL, was schwerer ist als nötig.
 3. **Redis** via `spring-session-data-redis`.
-4. **Hazelcast / Infinispan**. Adds a full clustering stack the project
-   does not otherwise need.
+4. **Hazelcast / Infinispan**. Bringt einen vollständigen Cluster-Stack
+   mit, den das Projekt sonst nicht braucht.
 
-## Decision
+## Entscheidung
 
-We use **Redis 7** via `spring-session-data-redis` with the Lettuce driver.
+Wir verwenden **Redis 7** über `spring-session-data-redis` mit dem
+Lettuce-Treiber.
 
-## Consequences
+## Konsequenzen
 
-### Positive
+### Positiv
 
-- **Restart-safe and horizontally scalable.** Multiple BFF instances can
-  share the same Redis and see the same sessions.
-- **TTL for free.** Redis keys carry a native TTL; Spring Session wires the
-  session timeout onto that TTL so expired sessions clean themselves up.
-- **Low operational overhead.** A single `redis:7-alpine` container with
-  no persistence (`--save "" --appendonly no`) is sufficient for a session
-  store — sessions are by definition ephemeral, losing them on Redis
-  failure is acceptable (users simply log in again).
-- **First-class Spring support.** `@EnableRedisHttpSession`, Lettuce
-  connection factory, serializers and health indicators are all provided
-  out of the box.
+- **Neustart-sicher und horizontal skalierbar.** Mehrere BFF-Instanzen
+  können sich dasselbe Redis teilen und sehen dieselben Sessions.
+- **TTL inklusive.** Redis-Keys haben ein natives TTL; Spring Session
+  verknüpft das Session-Timeout mit diesem TTL, sodass abgelaufene
+  Sessions sich selbst aufräumen.
+- **Geringer Betriebsaufwand.** Ein einzelner `redis:7-alpine`-Container
+  ohne Persistenz (`--save "" --appendonly no`) reicht als Session-Store
+  aus — Sessions sind per Definition ephemer, Verluste bei Redis-Ausfall
+  sind akzeptabel (Nutzer loggen sich einfach erneut ein).
+- **First-Class-Support in Spring.** `@EnableRedisHttpSession`,
+  Lettuce-Connection-Factory, Serializer und Health-Indikatoren sind
+  out-of-the-box verfügbar.
 
-### Negative
+### Negativ
 
-- **Redis is now a runtime dependency.** The BFF cannot start without it.
-  This is acknowledged in the compose file via a healthcheck and
-  `depends_on.condition: service_healthy`.
-- **Serialization.** Spring Session serializes session attributes with
-  JDK serialization by default, which means adding fields to session
-  classes has to be backwards-compatible or paired with a cache flush.
+- **Redis ist jetzt eine Laufzeit-Abhängigkeit.** Der BFF kann ohne Redis
+  nicht starten. Das ist im Compose-File durch einen Healthcheck und
+  `depends_on.condition: service_healthy` berücksichtigt.
+- **Serialisierung.** Spring Session serialisiert Session-Attribute per
+  Default mit JDK-Serialisierung. Das bedeutet: Neue Felder in
+  Session-Klassen müssen rückwärtskompatibel sein oder es muss ein
+  Cache-Flush geplant werden.
 
-### Rejected alternative: JDBC session store
+### Verworfene Alternative: JDBC-Session-Store
 
-- Would require a database just for sessions.
-- Session writes on every request turn into SQL traffic, which is much
-  more expensive per request than a Redis `SET`.
-- Adds schema migrations to a component whose entire data model is "a
-  session id points to a blob".
+- Würde eine Datenbank allein für Sessions erfordern.
+- Session-Writes bei jedem Request werden zu SQL-Traffic, pro Request
+  deutlich teurer als ein Redis-`SET`.
+- Fügt Schema-Migrationen zu einer Komponente hinzu, deren gesamtes
+  Datenmodell „eine Session-ID zeigt auf einen Blob" ist.
 
-### Rejected alternative: sticky sessions + in-memory
+### Verworfene Alternative: Sticky-Sessions + In-Memory
 
-- Ties users to a specific BFF instance. Rolling deploys log everyone out.
-- Does not survive instance crashes.
-- Fights against cloud-native rolling update patterns.
+- Bindet Nutzer an eine bestimmte BFF-Instanz. Rolling-Deploys loggen
+  alle aus.
+- Überlebt keinen Instanz-Crash.
+- Widerspricht Cloud-Native-Rolling-Update-Patterns.

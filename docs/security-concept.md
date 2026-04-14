@@ -1,180 +1,186 @@
-# Security Concept
+# Sicherheitskonzept
 
-This document describes the threat model of the BFF reference project, the
-countermeasures we implemented and — equally important — what is deliberately
-out of scope.
+Dieses Dokument beschreibt das Threat-Modell des BFF-Referenzprojekts, die
+implementierten Gegenmaßnahmen und — ebenso wichtig — was bewusst außerhalb
+des Scopes liegt.
 
-## Trust boundaries
+## Vertrauensgrenzen
 
 ```
-┌────────────────────┐  untrusted
-│      Browser       │  (attacker-controlled JavaScript possible)
+┌────────────────────┐  nicht vertrauenswürdig
+│      Browser       │  (vom Angreifer kontrollierbares JavaScript möglich)
 └──────────┬─────────┘
-           │  HTTP(S), cookies only
+           │  HTTP(S), ausschließlich Cookies
            ▼
-┌────────────────────┐  trusted
+┌────────────────────┐  vertrauenswürdig
 │   nginx + BFF      │
-│ (same origin from  │
-│  the browser's     │
-│  point of view)    │
+│ (aus Browsersicht  │
+│  gleicher Origin)  │
 └──────────┬─────────┘
-           │  internal Docker network
+           │  internes Docker-Netzwerk
            ▼
-┌────────────────────┐  trusted
+┌────────────────────┐  vertrauenswürdig
 │  Keycloak, Redis,  │
-│  downstream svcs   │
+│  Downstream-Svcs   │
 └────────────────────┘
 ```
 
-The only thing the browser ever sees from our system is the nginx origin
-(`http://localhost` in dev). It never talks to Keycloak or the microservices
-directly.
+Das Einzige, was der Browser von unserem System sieht, ist der nginx-Origin
+(in der Dev-Umgebung `http://localhost`). Er spricht niemals direkt mit
+Keycloak oder den Microservices.
 
-## Threat model
+## Threat-Modell
 
-We focus on the OWASP Top 10 threats that are realistic for a token-free SPA
-+ BFF architecture.
+Der Fokus liegt auf den OWASP-Top-10-Bedrohungen, die für eine tokenfreie
+SPA-+-BFF-Architektur realistisch sind.
 
-| # | Threat                                           | Attack                                                                                                            | Mitigation                                                                                                                                                     |
-|---|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1 | **Token exfiltration via XSS**                    | Malicious JS reads access/refresh tokens from `localStorage`/memory and posts them to an attacker                 | No tokens in the browser at all. Access/refresh tokens only exist server-side in Redis; the browser holds only an opaque session id in an `HttpOnly` cookie. |
-| 2 | **Session hijacking via XSS**                     | Malicious JS reads `document.cookie` and steals the session cookie                                                | `SESSION` cookie is `HttpOnly` → unreachable from JS. Content is an opaque id, useless outside Redis.                                                          |
-| 3 | **CSRF on state-changing endpoints**              | Third-party site submits a form to `/logout`, `/api/...` while the user has a valid session                      | Spring Security CSRF with double-submit cookie (`XSRF-TOKEN` + `X-XSRF-TOKEN` header). State-changing methods require both to match.                           |
-| 4 | **Session fixation**                              | Attacker obtains a session id, tricks user into using it, then reuses it after authentication                    | Spring Session creates a *new* session id on successful authentication (default `changeSessionId` strategy).                                                   |
-| 5 | **Authorization Code interception**               | Attacker on the network intercepts the OAuth2 `code` in flight                                                    | Confidential client (client secret on the BFF), short-lived codes, HTTPS in any non-local environment (`BFF_COOKIE_SECURE=true`).                             |
-| 6 | **Open redirect after login**                     | Attacker crafts a login URL with a `redirect_uri` pointing to an external site                                    | Valid redirect URIs are whitelisted in Keycloak (`http://localhost:8090/*`); the BFF only redirects to its own frontend origin after login.                   |
-| 7 | **Brute-force login**                             | Attacker tries many passwords against Keycloak                                                                    | Keycloak brute-force protection enabled in the realm export.                                                                                                   |
-| 8 | **Sensitive data in logs**                        | Tokens, session ids or PII leak into stdout / logfiles                                                            | No `DEBUG` logs for `org.springframework.security.oauth2`, no `DEBUG` for `org.springframework.web.reactive.function.client`. SLF4J + Logback, structured.    |
-| 9 | **Downstream service impersonation**              | Attacker reaches a microservice directly and bypasses the BFF                                                     | Services are only exposed on the internal Docker network; browsers cannot reach them. Services additionally validate JWTs via JWKS against Keycloak.         |
-| 10| **Cache poisoning / stale index.html**            | A cached `index.html` references a hashed bundle that no longer exists, or vice versa                            | nginx sets `Cache-Control: no-store` on `index.html` and `immutable` on hashed assets.                                                                         |
-| 11| **Clickjacking**                                  | Attacker embeds the SPA in an iframe to trick the user into clicking                                              | `X-Frame-Options: DENY` set in nginx.                                                                                                                          |
-| 12| **MIME sniffing**                                 | Browser guesses content type and executes unexpected content                                                      | `X-Content-Type-Options: nosniff` set in nginx.                                                                                                                |
-
----
-
-## Cookie strategy
-
-Two cookies are used. Both are first-party from the browser's point of view
-because nginx reverse-proxies the BFF under the same origin.
-
-### `SESSION` cookie (Spring Session)
-
-| Attribute   | Value                              |
-|-------------|-------------------------------------|
-| `HttpOnly`  | `true` — not reachable from JS      |
-| `Secure`    | `true` in non-local (`BFF_COOKIE_SECURE`) |
-| `SameSite`  | `Lax`                              |
-| `Path`      | `/`                                |
-| `Max-Age`   | `BFF_SESSION_TIMEOUT_SECONDS` (default 1800 s) |
-| Contents    | Opaque Spring Session id            |
-
-### `XSRF-TOKEN` cookie (CSRF double-submit)
-
-| Attribute   | Value                              |
-|-------------|-------------------------------------|
-| `HttpOnly`  | **`false`** — by design, the SPA reads it |
-| `Secure`    | `true` in non-local                 |
-| `SameSite`  | `Lax`                              |
-| `Path`      | `/`                                |
-| Contents    | Random CSRF token                   |
-
-### Why `SameSite=Lax` and not `SameSite=Strict`?
-
-`Strict` would block the cookie on any cross-site navigation — including the
-top-level redirect from Keycloak back to `http://localhost/login/oauth2/code/keycloak`
-after a successful login. The browser would not attach the session cookie
-on that redirect, and Spring Security would create a *second* session,
-losing the OAuth2 state. Users would end up in a loop.
-
-`Lax` attaches the cookie on top-level GET navigations, which is exactly
-what the post-login redirect is, while still blocking it on embedded
-cross-site sub-resource requests (the classic CSRF vector). Combined with
-the explicit double-submit CSRF token on state-changing endpoints, this
-gives us:
-
-| Scenario                                              | `Lax`                          |
-|-------------------------------------------------------|--------------------------------|
-| Login redirect Keycloak → BFF (top-level GET)         | Cookie sent ✓ (works)           |
-| Evil form POST from `attacker.example` → BFF          | Cookie sent, but CSRF check fails → 403 ✓ |
-| Hidden `<img>` from `attacker.example` → BFF          | Cookie **not** sent ✓           |
-| SPA calling `/api/dashboard` from same origin         | Cookie sent ✓                   |
-
-So `Lax` is the weakest form that still allows the login flow to work, and
-the CSRF token closes the gap on state-changing requests.
-
-### Cookie attributes in local dev
-
-In local development `BFF_COOKIE_SECURE=false` because `localhost` is served
-over plain HTTP. In any real environment this must flip to `true`. The flag
-is read from the environment; there is no hard-coded override.
+| # | Bedrohung                                      | Angriff                                                                                                            | Gegenmaßnahme                                                                                                                                                 |
+|---|------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1 | **Token-Exfiltration über XSS**                | Schädliches JS liest Access-/Refresh-Token aus `localStorage`/Speicher und schickt sie an den Angreifer            | Gar keine Tokens im Browser. Access-/Refresh-Tokens existieren nur serverseitig in Redis; der Browser hält nur eine opake Session-ID in einem `HttpOnly`-Cookie. |
+| 2 | **Session-Hijacking über XSS**                 | Schädliches JS liest `document.cookie` und stiehlt das Session-Cookie                                              | `SESSION`-Cookie ist `HttpOnly` → aus JS nicht erreichbar. Der Inhalt ist eine opake ID, außerhalb von Redis wertlos.                                           |
+| 3 | **CSRF auf zustandsändernde Endpunkte**        | Drittseite sendet ein Formular an `/logout`, `/api/...` während der Nutzer eine gültige Session hat                | Spring Security CSRF mit Double-Submit-Cookie (`XSRF-TOKEN` + `X-XSRF-TOKEN`-Header). Zustandsändernde Methoden erfordern Übereinstimmung beider Werte.        |
+| 4 | **Session-Fixation**                           | Angreifer besorgt sich eine Session-ID, bringt den Nutzer zur Nutzung und verwendet sie nach dem Login weiter       | Spring Session erzeugt nach erfolgreicher Authentifizierung eine *neue* Session-ID (Default-Strategie `changeSessionId`).                                       |
+| 5 | **Abfangen des Authorization-Codes**           | Netzwerk-Angreifer fängt den OAuth2-`code` im Transport ab                                                          | Confidential-Client (Client-Secret auf dem BFF), kurzlebige Codes, HTTPS in jeder Nicht-Lokalumgebung (`BFF_COOKIE_SECURE=true`).                             |
+| 6 | **Open-Redirect nach Login**                   | Angreifer baut eine Login-URL mit einem `redirect_uri` auf eine externe Seite                                       | Gültige Redirect-URIs sind in Keycloak gewhitelistet (`http://localhost:8090/*`); der BFF redirected nach Login ausschließlich auf den eigenen Frontend-Origin. |
+| 7 | **Brute-Force-Login**                          | Angreifer probiert viele Passwörter gegen Keycloak                                                                  | Keycloak-Brute-Force-Protection ist im Realm-Export aktiviert.                                                                                                  |
+| 8 | **Sensible Daten im Log**                      | Tokens, Session-IDs oder PII landen in stdout/Logdateien                                                            | Keine `DEBUG`-Logs für `org.springframework.security.oauth2`, keine `DEBUG`-Logs für `org.springframework.web.reactive.function.client`. SLF4J + Logback, strukturiert. |
+| 9 | **Impersonation von Downstream-Services**      | Angreifer erreicht einen Microservice direkt und umgeht den BFF                                                     | Services sind nur im internen Docker-Netzwerk erreichbar; Browser kommen nicht ran. Zusätzlich validieren die Services JWTs über JWKS gegen Keycloak.          |
+| 10| **Cache-Poisoning / veraltete index.html**     | Eine gecachte `index.html` verweist auf ein gehashtes Bundle, das nicht mehr existiert — oder umgekehrt            | nginx setzt `Cache-Control: no-store` auf `index.html` und `immutable` auf gehashte Assets.                                                                    |
+| 11| **Clickjacking**                                | Angreifer bettet die SPA in ein iframe, um Klicks zu kapern                                                         | `X-Frame-Options: DENY` in nginx gesetzt.                                                                                                                       |
+| 12| **MIME-Sniffing**                               | Browser rät den Content-Type und führt unerwartete Inhalte aus                                                      | `X-Content-Type-Options: nosniff` in nginx gesetzt.                                                                                                             |
 
 ---
 
-## CSRF strategy: double-submit cookie
+## Cookie-Strategie
 
-Spring Security's `CookieCsrfTokenRepository` (with
-`withHttpOnlyFalse()`) is used together with a SPA-aware request handler
-(`SpaCsrfTokenRequestHandler`). The contract is:
+Es werden zwei Cookies genutzt. Beide sind aus Browsersicht First-Party,
+weil nginx den BFF unter demselben Origin reverse-proxyt.
 
-1. On the first safe request, Spring Security issues an `XSRF-TOKEN` cookie
-   (not `HttpOnly`).
-2. Angular's `HttpClient` is configured with
+### `SESSION`-Cookie (Spring Session)
+
+| Attribut    | Wert                                              |
+|-------------|---------------------------------------------------|
+| `HttpOnly`  | `true` — aus JS nicht erreichbar                  |
+| `Secure`    | `true` in Nicht-Lokalumgebungen (`BFF_COOKIE_SECURE`) |
+| `SameSite`  | `Lax`                                             |
+| `Path`      | `/`                                               |
+| `Max-Age`   | `BFF_SESSION_TIMEOUT_SECONDS` (Default 1800 s)    |
+| Inhalt      | Opake Spring-Session-ID                           |
+
+### `XSRF-TOKEN`-Cookie (CSRF-Double-Submit)
+
+| Attribut    | Wert                                              |
+|-------------|---------------------------------------------------|
+| `HttpOnly`  | **`false`** — bewusst, damit die SPA es lesen kann |
+| `Secure`    | `true` in Nicht-Lokalumgebungen                   |
+| `SameSite`  | `Lax`                                             |
+| `Path`      | `/`                                               |
+| Inhalt      | Zufälliges CSRF-Token                             |
+
+### Warum `SameSite=Lax` und nicht `SameSite=Strict`?
+
+`Strict` würde das Cookie bei jeder Cross-Site-Navigation blockieren —
+auch beim Top-Level-Redirect von Keycloak zurück auf
+`http://localhost/login/oauth2/code/keycloak` nach einem erfolgreichen
+Login. Der Browser würde das Session-Cookie bei diesem Redirect nicht
+mitsenden, Spring Security würde eine *zweite* Session anlegen und den
+OAuth2-State verlieren. Nutzer würden in einer Endlos-Schleife landen.
+
+`Lax` sendet das Cookie bei Top-Level-GET-Navigationen mit — und genau das
+ist der Post-Login-Redirect —, blockt es aber weiterhin bei eingebetteten
+Cross-Site-Subressource-Requests (dem klassischen CSRF-Vektor). Kombiniert
+mit dem expliziten Double-Submit-CSRF-Token auf zustandsändernden
+Endpunkten ergibt sich folgendes Bild:
+
+| Szenario                                              | `Lax`                                           |
+|-------------------------------------------------------|-------------------------------------------------|
+| Login-Redirect Keycloak → BFF (Top-Level-GET)         | Cookie mitgesendet ✓ (funktioniert)             |
+| Bösartiger Form-POST von `attacker.example` → BFF     | Cookie mitgesendet, aber CSRF-Check failt → 403 ✓ |
+| Verstecktes `<img>` von `attacker.example` → BFF      | Cookie **nicht** mitgesendet ✓                  |
+| SPA ruft `/api/dashboard` vom selben Origin           | Cookie mitgesendet ✓                            |
+
+`Lax` ist also die schwächste Variante, bei der der Login-Flow noch
+funktioniert; das CSRF-Token schließt die Lücke bei zustandsändernden
+Requests.
+
+### Cookie-Attribute in der lokalen Entwicklung
+
+In der lokalen Entwicklung ist `BFF_COOKIE_SECURE=false`, weil `localhost`
+über reines HTTP ausgeliefert wird. In jeder echten Umgebung muss das Flag
+auf `true` umgestellt werden. Gelesen wird es aus der Umgebung; es gibt
+keinen hart kodierten Override.
+
+---
+
+## CSRF-Strategie: Double-Submit-Cookie
+
+Spring Securitys `CookieCsrfTokenRepository` (mit `withHttpOnlyFalse()`)
+wird gemeinsam mit einem SPA-freundlichen Request-Handler
+(`SpaCsrfTokenRequestHandler`) verwendet. Der Vertrag lautet:
+
+1. Beim ersten Safe-Request stellt Spring Security ein `XSRF-TOKEN`-Cookie
+   aus (nicht `HttpOnly`).
+2. Angulars `HttpClient` ist mit
    `withXsrfConfiguration({ cookieName: 'XSRF-TOKEN', headerName: 'X-XSRF-TOKEN' })`
-   — it automatically reads the cookie and echoes it back as a header on
-   every state-changing request.
-3. Spring Security compares the cookie and the header. If they mismatch,
-   the request is rejected with 403.
+   konfiguriert — er liest das Cookie automatisch und spiegelt es bei jedem
+   zustandsändernden Request als Header zurück.
+3. Spring Security vergleicht Cookie und Header. Stimmen sie nicht überein,
+   wird der Request mit 403 abgewiesen.
 
-A cross-origin attacker cannot read the `XSRF-TOKEN` cookie (same-origin
-policy), therefore cannot forge the header, therefore cannot mount a CSRF
-attack — even though the browser might still attach the `SESSION` cookie
-under `Lax` for some top-level navigations.
-
----
-
-## Token lifecycle
-
-- **Access token**: 5 minutes (Keycloak realm setting). Cached in the
-  `OAuth2AuthorizedClient` in Redis, refreshed transparently by Spring
-  Security's `ServerOAuth2AuthorizedClientManager`.
-- **Refresh token**: 30 minutes. Used to renew the access token when it
-  expires. If the refresh token itself is expired, the BFF responds with
-  401, clears the session and the SPA starts a fresh login.
-- **ID token**: present after login but not forwarded to downstream
-  services; only used for username display and logout hints.
-- **Revocation on logout**: the BFF calls Keycloak's `/revoke` endpoint for
-  the refresh token and deletes the Redis session entry atomically.
-
-Tokens are **never** logged, returned in HTTP responses or stored in any
-key outside the Spring Session namespace in Redis.
+Ein Cross-Origin-Angreifer kann das `XSRF-TOKEN`-Cookie wegen
+Same-Origin-Policy nicht lesen, kann den Header also nicht fälschen und
+damit keinen CSRF-Angriff durchführen — selbst wenn der Browser das
+`SESSION`-Cookie unter `Lax` bei manchen Top-Level-Navigationen noch
+mitsenden würde.
 
 ---
 
-## What is deliberately *not* implemented
+## Token-Lebenszyklus
 
-This is a reference / teaching project. The following items are typically
-present in a production deployment but are intentionally out of scope here
-to keep the focus on the BFF pattern:
+- **Access-Token**: 5 Minuten (Keycloak-Realm-Einstellung). Im
+  `OAuth2AuthorizedClient` in Redis gecached, transparent durch Spring
+  Securitys `ServerOAuth2AuthorizedClientManager` erneuert.
+- **Refresh-Token**: 30 Minuten. Wird genutzt, um das Access-Token nach
+  Ablauf zu erneuern. Ist das Refresh-Token selbst abgelaufen, antwortet
+  der BFF mit 401, räumt die Session ab und die SPA startet einen neuen
+  Login.
+- **ID-Token**: Nach dem Login vorhanden, wird aber nicht an
+  Downstream-Services weitergereicht — nur für die Benutzernamensanzeige
+  und Logout-Hints genutzt.
+- **Revocation beim Logout**: Der BFF ruft Keycloaks `/revoke`-Endpunkt
+  für das Refresh-Token auf und löscht den Redis-Session-Eintrag atomar.
 
-- **HTTPS termination.** Local dev uses plain HTTP. In production you would
-  terminate TLS at nginx or an upstream load balancer and flip
-  `BFF_COOKIE_SECURE=true`.
-- **Distributed rate limiting.** nginx is not configured with `limit_req`.
-  Keycloak's brute-force protection covers the login endpoint but
-  application endpoints are not rate-limited.
-- **Web Application Firewall.** No ModSecurity / Coraza in the proxy path.
-- **mTLS between BFF and downstream services.** The JWT bearer is the only
-  authentication layer between them. In a zero-trust setup you would add
-  mTLS on top.
-- **Secret management.** The client secret is in `.env` for reproducibility.
-  In production this belongs in Vault / a cloud KMS / a k8s secret.
-- **Audit logging of security events** beyond what Spring Security and
-  Keycloak emit by default.
-- **Content Security Policy.** A strict CSP is environment-specific (it
-  depends on which CDN, analytics and fonts you load) and is therefore not
-  shipped in this reference. The nginx config has placeholders for the
-  other security headers (`X-Frame-Options`, `X-Content-Type-Options`,
-  `Referrer-Policy`, `Permissions-Policy`).
+Tokens werden **niemals** geloggt, in HTTP-Antworten zurückgegeben oder in
+irgendeinem Key außerhalb des Spring-Session-Namespace in Redis gespeichert.
 
-Each of these is a worthwhile addition, but each would double the scope of
-the project without adding anything to the BFF pattern itself.
+---
+
+## Was bewusst *nicht* implementiert ist
+
+Dies ist ein Referenz-/Lehrprojekt. Folgende Punkte sind in einer
+Produktionsumgebung üblicherweise vorhanden, werden aber bewusst außerhalb
+des Scopes gelassen, um den Fokus auf dem BFF-Pattern zu halten:
+
+- **HTTPS-Terminierung.** Lokal läuft reines HTTP. In Produktion
+  terminiert man TLS an nginx oder einem vorgelagerten Load-Balancer und
+  stellt `BFF_COOKIE_SECURE=true`.
+- **Verteiltes Rate-Limiting.** nginx ist nicht mit `limit_req`
+  konfiguriert. Keycloaks Brute-Force-Protection deckt den Login-Endpunkt
+  ab, Anwendungs-Endpunkte werden nicht limitiert.
+- **Web Application Firewall.** Kein ModSecurity / Coraza im Proxy-Pfad.
+- **mTLS zwischen BFF und Downstream-Services.** Der JWT-Bearer ist der
+  einzige Authentifizierungs-Layer zwischen ihnen. In einem Zero-Trust-
+  Setup würde man mTLS obendrauf setzen.
+- **Secret-Management.** Das Client-Secret liegt aus Reproduzierbarkeits-
+  gründen in `.env`. In Produktion gehört es in Vault / ein Cloud-KMS /
+  ein Kubernetes-Secret.
+- **Audit-Logging von Security-Events** über das hinaus, was Spring
+  Security und Keycloak standardmäßig emittieren.
+- **Content Security Policy.** Ein strenger CSP ist umgebungsspezifisch
+  (abhängig von geladenen CDNs, Analytics, Fonts) und wird daher in
+  dieser Referenz nicht ausgeliefert. Die nginx-Konfiguration hat
+  Platzhalter für die anderen Security-Header (`X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`).
+
+Jeder dieser Punkte ist eine sinnvolle Ergänzung, würde aber den Scope des
+Projekts verdoppeln, ohne am BFF-Pattern selbst etwas hinzuzufügen.

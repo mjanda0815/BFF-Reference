@@ -1,56 +1,60 @@
-# ADR-002: Authenticate the SPA with a session cookie, not a browser-held token
+# ADR-002: SPA-Authentifizierung per Session-Cookie statt Browser-Token
 
-- **Status:** Accepted
-- **Date:** 2026-04-06
+- **Status:** Akzeptiert
+- **Datum:** 2026-04-06
 
-## Context
+## Kontext
 
-Once we decided to use a BFF (ADR-001), we still had to choose how the SPA
-authenticates itself against the BFF on each request. Two common options:
+Nachdem die Entscheidung für einen BFF (ADR-001) gefallen war, musste
+festgelegt werden, wie die SPA sich bei jedem Request gegenüber dem BFF
+authentifiziert. Zwei gängige Optionen:
 
-1. **Bearer token in the `Authorization` header**, with the token either
-   obtained from Keycloak directly or minted by the BFF. The SPA stores it
-   in memory or `localStorage`.
-2. **Opaque session cookie** set by the BFF after login, automatically
-   attached by the browser on every subsequent request.
+1. **Bearer-Token im `Authorization`-Header**, wobei das Token entweder
+   direkt von Keycloak bezogen oder vom BFF ausgestellt wird. Die SPA
+   speichert es im Speicher oder `localStorage`.
+2. **Opakes Session-Cookie**, das der BFF nach dem Login setzt und das
+   der Browser bei jedem weiteren Request automatisch mitsendet.
 
-## Decision
+## Entscheidung
 
-We use an **opaque `HttpOnly` session cookie** (`SESSION`) issued by Spring
-Session. The SPA never holds any kind of token.
+Wir verwenden ein **opakes `HttpOnly`-Session-Cookie** (`SESSION`), das
+Spring Session ausstellt. Die SPA hält keinerlei Tokens.
 
-## Consequences
+## Konsequenzen
 
-### Positive
+### Positiv
 
-- **XSS cannot read the cookie.** `HttpOnly` removes the cookie from the
-  reach of `document.cookie`. An XSS can still *act* as the user for the
-  duration of the attack, but cannot *exfiltrate* the session id for use
-  from an attacker-controlled machine outside the browser.
-- **Automatic attachment.** The browser attaches the cookie on every
-  same-origin request. The SPA's HTTP layer is trivially simple:
-  `withCredentials: true` and done.
-- **Cheap rotation / invalidation.** The server owns the session. Logout,
-  timeout or admin revocation is a single Redis `DEL` — no revocation list
-  or token blacklist needed.
-- **No token parsing in the frontend.** No JWT decoding, no clock skew
-  handling, no "is my token about to expire" logic.
+- **XSS kann das Cookie nicht lesen.** `HttpOnly` entzieht das Cookie dem
+  Zugriff über `document.cookie`. Ein XSS kann den Nutzer für die Dauer
+  des Angriffs weiterhin imitieren, aber die Session-ID nicht so
+  exfiltrieren, dass sie außerhalb des Browsers von einer
+  angreifer-kontrollierten Maschine nutzbar wäre.
+- **Automatische Mitlieferung.** Der Browser hängt das Cookie an jeden
+  Same-Origin-Request. Die HTTP-Schicht der SPA ist trivial:
+  `withCredentials: true`, fertig.
+- **Günstige Rotation/Invalidation.** Der Server besitzt die Session.
+  Logout, Timeout oder administrative Revocation ist ein einzelnes
+  `DEL` auf Redis — keine Revocation-Liste, keine Token-Blacklist nötig.
+- **Kein Token-Parsing im Frontend.** Kein JWT-Decoding, kein Clock-Skew-
+  Handling, keine „ist mein Token bald abgelaufen"-Logik.
 
-### Negative
+### Negativ
 
-- **Requires same-origin deployment** (SPA and BFF share an origin via
-  nginx reverse proxy). Cross-origin cookie setups need `SameSite=None;
-  Secure`, which weakens CSRF posture and is avoided here.
-- **CSRF protection is mandatory.** Because the browser attaches the
-  cookie automatically, we must defend against cross-site request forgery.
-  See the security concept for the double-submit token implementation.
+- **Erfordert Same-Origin-Deployment** (SPA und BFF teilen sich einen
+  Origin via nginx-Reverse-Proxy). Cross-Origin-Cookie-Setups brauchen
+  `SameSite=None; Secure`, was die CSRF-Position schwächt und daher hier
+  vermieden wird.
+- **CSRF-Schutz ist zwingend.** Weil der Browser das Cookie automatisch
+  mitsendet, müssen wir uns gegen Cross-Site-Request-Forgery schützen.
+  Die Double-Submit-Token-Implementierung ist im Sicherheitskonzept
+  beschrieben.
 
-### Rejected alternative: access token in `Authorization` header from the SPA
+### Verworfene Alternative: Access-Token im `Authorization`-Header aus der SPA
 
-- Exposes tokens to XSS (either in `localStorage` or in JS memory that the
-  attacker's script can reach).
-- Makes logout harder: revoking a JWT that is already in the client's hands
-  requires a blacklist or very short lifetimes plus a refresh flow, which
-  brings its own storage problems.
-- Forces CORS + `Authorization` header wiring in the frontend for every
-  call, with no real benefit in a same-origin deployment.
+- Setzt Tokens XSS aus (entweder im `localStorage` oder in JS-Speicher,
+  den das Angreiferskript erreichen kann).
+- Erschwert Logout: Das Invalidieren eines bereits beim Client liegenden
+  JWTs erfordert eine Blacklist oder sehr kurze Laufzeiten plus
+  Refresh-Flow, was wiederum eigene Speicherprobleme mit sich bringt.
+- Zwingt CORS + `Authorization`-Header-Verdrahtung ins Frontend bei
+  jedem Aufruf, ohne echten Nutzen in einem Same-Origin-Deployment.

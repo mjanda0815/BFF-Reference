@@ -1,60 +1,65 @@
-# ADR-001: Use a Backend-for-Frontend (BFF) instead of direct SPA → API calls
+# ADR-001: Backend-for-Frontend (BFF) statt direkter SPA → API-Aufrufe
 
-- **Status:** Accepted
-- **Date:** 2026-04-06
+- **Status:** Akzeptiert
+- **Datum:** 2026-04-06
 
-## Context
+## Kontext
 
-The Angular dashboard needs data from three downstream microservices
-(user, notification, activity) that are secured by OAuth2 / OIDC via
-Keycloak. Two shapes of architecture were considered:
+Das Angular-Dashboard benötigt Daten von drei Downstream-Microservices
+(user, notification, activity), die per OAuth2/OIDC über Keycloak
+abgesichert sind. Zwei Architekturformen wurden erwogen:
 
-1. **Direct**: the SPA holds its own OAuth2 client, obtains an access token
-   from Keycloak and calls each microservice directly, aggregating the
-   responses in the browser.
-2. **BFF**: a server-side component owns the OAuth2 flow, talks to the
-   microservices on behalf of the user, aggregates, and exposes a single
-   frontend-shaped API to the SPA over session cookies.
+1. **Direkt**: Die SPA hält einen eigenen OAuth2-Client, bezieht das
+   Access-Token direkt von Keycloak und ruft jeden Microservice einzeln
+   auf; die Antworten werden im Browser aggregiert.
+2. **BFF**: Eine serverseitige Komponente besitzt den OAuth2-Flow, spricht
+   im Namen des Nutzers mit den Microservices, aggregiert die Antworten
+   und exponiert der SPA über Session-Cookies eine einzige,
+   frontend-geformte API.
 
-## Decision
+## Entscheidung
 
-We use a **BFF**. The Angular application only talks to the BFF, never
-directly to Keycloak or to any downstream service. Tokens never reach the
-browser.
+Wir verwenden einen **BFF**. Die Angular-Anwendung spricht ausschließlich
+mit dem BFF, niemals direkt mit Keycloak oder einem Downstream-Service.
+Tokens erreichen den Browser nicht.
 
-## Consequences
+## Konsequenzen
 
-### Positive
+### Positiv
 
-- **No browser-held tokens.** Access and refresh tokens exist only on the
-  server side in Redis. XSS cannot steal what is not there. `localStorage`
-  is not used for auth at all.
-- **Smaller blast radius on XSS.** A successful XSS gives the attacker the
-  authority of the current page (they can still make calls as the user via
-  the session cookie), but they cannot exfiltrate long-lived credentials
-  that work outside the browser.
-- **Frontend stays dumb.** The SPA does not implement OIDC flows, token
-  refresh, token storage or JWT parsing. It is a thin presentation layer.
-- **Aggregation in one place.** Dashboard data from three services is
-  assembled once on the server (`Mono.zip`, parallel, per-service timeout,
-  partial-failure tolerant) and delivered in a single response.
-- **Stronger CORS posture.** The browser only needs to talk to its own
-  origin. Downstream services can stay behind the internal network with no
-  CORS concerns at all.
+- **Keine Tokens im Browser.** Access- und Refresh-Tokens existieren nur
+  serverseitig in Redis. XSS kann nicht stehlen, was nicht da ist.
+  `localStorage` wird für Authentifizierung gar nicht verwendet.
+- **Kleinerer Blast-Radius bei XSS.** Ein erfolgreicher XSS verleiht dem
+  Angreifer die Autorität der aktuellen Seite (er kann weiterhin im Namen
+  des Nutzers über das Session-Cookie Aufrufe tätigen), kann aber keine
+  langlebigen Credentials exfiltrieren, die außerhalb des Browsers
+  funktionieren würden.
+- **Frontend bleibt dumm.** Die SPA implementiert keinen OIDC-Flow,
+  kein Token-Refresh, keine Token-Speicherung, kein JWT-Parsing. Sie ist
+  eine dünne Präsentationsschicht.
+- **Aggregation an einer Stelle.** Dashboard-Daten aus drei Services werden
+  einmal auf dem Server zusammengesetzt (`Mono.zip`, parallel, Timeout pro
+  Service, fehlertolerant) und in einer einzigen Antwort ausgeliefert.
+- **Bessere CORS-Position.** Der Browser muss nur mit seinem eigenen Origin
+  sprechen. Downstream-Services können im internen Netzwerk verbleiben,
+  ohne CORS-Themen.
 
-### Negative
+### Negativ
 
-- **One more process to run and operate.** The BFF is a new deployable with
-  its own scaling, logging and failure modes.
-- **Session state.** We now depend on Redis for session storage, which adds
-  an operational dependency (see ADR-003 for why Redis specifically).
-- **Coupling to frontend shape.** The BFF API is tailored to the current
-  SPA. If a second frontend appears, either it consumes the same BFF API or
-  a second BFF is needed. This is a deliberate property of the pattern, not
-  a bug.
+- **Ein zusätzlicher Prozess im Betrieb.** Der BFF ist ein neues
+  Deployable mit eigenem Skalierungs-, Logging- und Fehlerverhalten.
+- **Session-State.** Wir hängen jetzt von Redis als Session-Speicher ab,
+  was eine Betriebs-Abhängigkeit hinzufügt (siehe ADR-003 für die
+  konkrete Wahl Redis).
+- **Kopplung an die Frontend-Form.** Die BFF-API ist auf die aktuelle SPA
+  zugeschnitten. Kommt ein zweites Frontend hinzu, konsumiert es entweder
+  dieselbe BFF-API oder braucht einen zweiten BFF. Das ist eine bewusste
+  Eigenschaft des Patterns, kein Fehler.
 
-### Rejected alternative: SPA with `angular-oauth2-oidc`
+### Verworfene Alternative: SPA mit `angular-oauth2-oidc`
 
-Would have given the SPA its own tokens, which we explicitly do not want
-for the security reasons above. It also pushes aggregation into the client,
-which adds round-trips and duplicates logic per frontend.
+Hätte der SPA eigene Tokens gegeben — genau das wollen wir aus den oben
+genannten Sicherheitsgründen ausdrücklich nicht. Außerdem verschiebt es
+die Aggregation in den Client, erhöht Round-Trips und dupliziert Logik
+pro Frontend.
