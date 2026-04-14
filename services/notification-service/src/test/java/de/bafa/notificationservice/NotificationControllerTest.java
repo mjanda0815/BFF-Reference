@@ -1,4 +1,4 @@
-package io.janda.notificationservice;
+package de.bafa.notificationservice;
 
 import static org.mockito.Mockito.mock;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;

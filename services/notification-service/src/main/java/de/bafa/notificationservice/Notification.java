@@ -1,4 +1,4 @@
-package io.janda.notificationservice;
+package de.bafa.notificationservice;
 
 import java.time.Instant;
 
