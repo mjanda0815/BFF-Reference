@@ -13,7 +13,23 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-/** REST controller exposing the aggregated dashboard endpoint to the SPA. */
+/**
+ * REST controller exposing the aggregated dashboard endpoint to the SPA.
+ *
+ * <p>The controller itself is deliberately thin — it only wires authentication, token lookup and
+ * aggregation together. The interesting logic lives in {@link DashboardAggregationService}.
+ *
+ * <p><b>Flow:</b>
+ *
+ * <ol>
+ *   <li>Spring Security has already validated the session cookie and populated the {@link
+ *       OidcUser} principal. If it is null the request is unauthenticated → 401.
+ *   <li>{@link SessionTokenService} resolves the bearer token from the session (refreshing it if
+ *       needed).
+ *   <li>{@link DashboardAggregationService#buildDashboard} fans out to the three downstream
+ *       services in parallel and assembles the response.
+ * </ol>
+ */
 @RestController
 @RequestMapping("/api/dashboard")
 public class DashboardController {

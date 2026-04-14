@@ -5,7 +5,20 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-/** Strongly typed configuration properties for the BFF. */
+/**
+ * Strongly typed configuration properties bound from {@code application.yml} under the prefix
+ * {@code bff}.
+ *
+ * <p><b>Blueprint rationale:</b> all tunables are centralised here with JSR-380 validation. When a
+ * team forks this module for their own product they should audit every field below and either set
+ * a sensible default for their environment or fail fast at startup via {@code @NotBlank}. The
+ * required (un-defaulted) fields are the three downstream service URLs — if you copy this module
+ * and do not configure them the context will refuse to start, which is intentional.
+ *
+ * <p><b>Cookie security note:</b> {@link #cookieSecure} defaults to {@code false} for local dev
+ * (HTTP). Production deployments <em>must</em> set {@code bff.cookie-secure=true} so session
+ * cookies are only sent over HTTPS.
+ */
 @Validated
 @ConfigurationProperties(prefix = "bff")
 public class BffProperties {
