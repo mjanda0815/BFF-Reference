@@ -15,13 +15,29 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Resource server security configuration validating JWTs against Keycloak.
+ * Resource server security configuration validating JWTs against Keycloak — the canonical template
+ * for any downstream service in this reference stack.
  *
- * <p>The {@link JwtDecoder} is wired manually so the JWKS can be loaded from Keycloak's
- * <em>internal</em> URL (reachable on the docker network) while the {@code iss} claim is
- * validated against the <em>public</em> URL that Keycloak actually stamps into the token. Using
- * Spring Boot's auto-configured {@code issuer-uri} does not work here because OIDC discovery
- * returns an issuer that never matches both sides at once.
+ * <p><b>Key decisions:</b>
+ *
+ * <ul>
+ *   <li><b>Stateless sessions.</b> Downstream services never hold a session — every request must
+ *       carry a valid bearer token. That keeps them horizontally trivial to scale and removes
+ *       session-pinning concerns.
+ *   <li><b>CSRF disabled.</b> CSRF is a cookie-authentication problem; bearer-only APIs are
+ *       immune by design. The BFF handles CSRF for the SPA; this service does not need to.
+ *   <li><b>Health/info endpoints open.</b> Required for container orchestration liveness checks.
+ *       Everything else requires a valid JWT.
+ *   <li><b>Split JWK / issuer wiring.</b> The {@link JwtDecoder} is wired manually so the JWKS
+ *       can be loaded from Keycloak's <em>internal</em> URL (reachable on the docker network)
+ *       while the {@code iss} claim is validated against the <em>public</em> URL that Keycloak
+ *       actually stamps into the token. Using Spring Boot's auto-configured {@code issuer-uri}
+ *       does not work here because OIDC discovery returns an issuer that never matches both
+ *       sides at once.
+ * </ul>
+ *
+ * <p>The {@code @ConditionalOnMissingBean} on the decoder lets tests replace it with a
+ * {@code mock(JwtDecoder.class)} to avoid contacting Keycloak during unit testing.
  */
 @Configuration
 public class SecurityConfig {

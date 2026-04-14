@@ -15,11 +15,9 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Resource server security configuration validating JWTs against Keycloak.
- *
- * <p>The {@link JwtDecoder} is wired manually so the JWKS can be loaded from Keycloak's
- * <em>internal</em> URL (reachable on the docker network) while the {@code iss} claim is
- * validated against the <em>public</em> URL that Keycloak actually stamps into the token.
+ * Resource server security configuration — see {@link de.bafa.userservice.SecurityConfig} for the
+ * fully annotated template; this copy is kept minimal to demonstrate the blueprint can be reused
+ * verbatim across services.
  */
 @Configuration
 public class SecurityConfig {
