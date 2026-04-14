@@ -56,7 +56,7 @@ management:
 logging:
   level:
     root: INFO
-    io.janda.bff: INFO
+    de.bafa.bff: INFO
     org.springframework.security: INFO
     org.springframework.security.oauth2: INFO
     org.springframework.web: INFO
