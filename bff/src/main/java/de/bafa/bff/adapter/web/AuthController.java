@@ -15,9 +15,21 @@ import reactor.core.publisher.Mono;
 /**
  * Authentication helper endpoints for the SPA.
  *
- * <p>{@code /login} starts the OIDC login flow by redirecting to the Spring Security login entry
- * point. {@code /logout/backchannel} accepts Keycloak back-channel logout notifications. {@code
- * /api/userinfo} returns the bare-minimum user info the SPA needs.
+ * <p><b>Endpoints and their contract with the frontend:</b>
+ *
+ * <ul>
+ *   <li>{@code GET /login} — convenience redirect that kicks off the OIDC Authorization Code
+ *       Flow. The SPA calls this whenever an API response comes back 401.
+ *   <li>{@code POST /logout/backchannel} — OIDC back-channel logout notification endpoint for
+ *       Keycloak. Accepts the notification; actual session cleanup happens on the session's next
+ *       touch / expiry. A full implementation would parse the JWT logout_token and proactively
+ *       kill the matching session in Redis; this reference keeps it minimal.
+ *   <li>{@code GET /api/userinfo} — returns the minimum user info the SPA needs to render a
+ *       "Hello, X" header. Deliberately <em>never</em> echoes any OAuth2 token.
+ * </ul>
+ *
+ * <p><b>Blueprint note:</b> the login endpoint is a thin wrapper around Spring Security's {@code
+ * /oauth2/authorization/{id}} to give the SPA a stable URL that does not leak the registration id.
  */
 @RestController
 public class AuthController {

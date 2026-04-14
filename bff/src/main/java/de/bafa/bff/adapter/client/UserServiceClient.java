@@ -12,7 +12,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-/** WebClient-backed adapter for the user-service. */
+/**
+ * WebClient-backed adapter implementing {@link UserServicePort}.
+ *
+ * <p><b>Hexagonal role:</b> this is the outbound adapter that talks HTTP to the downstream
+ * user-service. The application layer depends only on the {@code UserServicePort} abstraction,
+ * which lets tests swap in a stub without involving Spring or WebClient.
+ *
+ * <p><b>Bearer token propagation:</b> the access token is threaded through explicitly via the
+ * {@code accessToken} parameter rather than a Spring Security exchange filter, because this
+ * service is called from the aggregation layer (not a web request) and the token is resolved from
+ * the session by {@link de.bafa.bff.application.SessionTokenService}.
+ */
 @Component
 public class UserServiceClient implements UserServicePort {
 

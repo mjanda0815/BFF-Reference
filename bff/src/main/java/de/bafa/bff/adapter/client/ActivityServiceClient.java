@@ -14,7 +14,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-/** WebClient-backed adapter for the activity-service. */
+/**
+ * WebClient-backed adapter implementing {@link ActivityServicePort}. See {@link UserServiceClient}
+ * for the shared design notes.
+ *
+ * <p>Note the use of {@link ParameterizedTypeReference} to deserialise a {@code List<T>} — Jackson
+ * cannot infer the element type from a raw {@code List.class} at runtime, so a type reference is
+ * required whenever a WebClient call returns a collection.
+ */
 @Component
 public class ActivityServiceClient implements ActivityServicePort {
 

@@ -11,10 +11,23 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Manages the OAuth2 token lifecycle on behalf of a session: lookup, refresh, removal.
+ * Manages the OAuth2 token lifecycle on behalf of a session — the single place where access and
+ * refresh tokens live on the server.
  *
- * <p>The frontend never sees these tokens — they live exclusively server-side, persisted in the
- * Redis-backed Spring Session.
+ * <p><b>Why this service exists:</b> in the BFF pattern the SPA never touches tokens. When the
+ * dashboard controller needs an access token to call a downstream service, it asks this service,
+ * which consults Spring Security's {@link
+ * org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository}.
+ * The repository transparently refreshes an expired access token using the refresh token, so the
+ * caller always gets a valid bearer value.
+ *
+ * <p><b>Storage:</b> the underlying {@code OAuth2AuthorizedClient} is serialised into the Spring
+ * Session, which is persisted in Redis (see {@link de.bafa.bff.config.RedisConfig}). Tokens
+ * therefore survive a JVM restart but are gone the moment the session expires or is invalidated.
+ *
+ * <p><b>Invariant:</b> every authenticated API request that reaches a controller must be able to
+ * resolve an access token via {@link #currentAccessToken}. If this returns empty, the session is
+ * corrupt and the controller should respond with 401 so the SPA can re-login.
  */
 @Service
 public class SessionTokenService {

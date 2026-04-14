@@ -8,10 +8,27 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-/** Builds the WebClient instances used by the downstream service clients. */
+/**
+ * Builds one dedicated {@link WebClient} per downstream service.
+ *
+ * <p><b>Why one client per service instead of a shared bean:</b>
+ *
+ * <ul>
+ *   <li>Each client has its own {@code baseUrl}, so adapters stay short and composable.
+ *   <li>Per-service connect/read/write timeouts make a slow downstream fail fast without
+ *       dragging down the aggregation (see {@link
+ *       de.bafa.bff.application.DashboardAggregationService}).
+ *   <li>Observability: tracing and metrics are per-bean, so it is trivial to see which downstream
+ *       is misbehaving.
+ * </ul>
+ *
+ * <p>Beans are wired into the adapter classes by {@link Qualifier} using the {@code *_SERVICE}
+ * constants below.
+ */
 @Configuration
 public class WebClientConfig {
 

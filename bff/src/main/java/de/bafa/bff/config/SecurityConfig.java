@@ -29,10 +29,33 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * Reactive security configuration for the BFF.
+ * Reactive security configuration — the architectural heart of the BFF.
  *
  * <p>Implements the Backend-for-Frontend pattern with: Redis-backed sessions, Keycloak OIDC login,
  * a Double-Submit-Cookie CSRF strategy and resilient {@code 401} responses for {@code /api/**}.
+ *
+ * <p><b>Key design choices a team should understand before copying this class:</b>
+ *
+ * <ul>
+ *   <li><b>CSRF via double-submit cookie</b> ({@link CookieServerCsrfTokenRepository}). The
+ *       browser receives the token as a readable cookie ({@code XSRF-TOKEN}) and echoes it as a
+ *       request header ({@code X-XSRF-TOKEN}). This pairs naturally with a cookie-authenticated
+ *       SPA; see {@code docs/security-concept.md} for the threat model.
+ *   <li><b>Plain (non-XOR) CSRF token handler.</b> The SPA sends the raw token back unchanged. The
+ *       XOR handler is only needed when the token is embedded in HTML bodies (BREACH defence),
+ *       which does not apply to a pure JSON API.
+ *   <li><b>Smart authentication entry point.</b> Unauthenticated {@code /api/**} requests get a
+ *       clean {@code 401} so the SPA's HTTP interceptor can react, while navigation requests get
+ *       a {@code 302} redirect into the Keycloak authorization endpoint.
+ *   <li><b>NoOp request cache.</b> Spring's default caches the pre-login request to replay after
+ *       login — counter-productive for a pure SPA, where we always want to land on the dashboard.
+ *   <li><b>RP-initiated logout.</b> Local session + Redis tokens are cleared <em>and</em> the
+ *       browser is redirected to Keycloak's {@code end_session_endpoint} so the SSO session ends
+ *       too. Without this the user would silently be re-logged-in on the next /login.
+ * </ul>
+ *
+ * <p>The {@code permitAll} list below should be kept minimal and reviewed on every fork — every
+ * path added here bypasses authentication.
  */
 @Configuration
 @EnableWebFluxSecurity

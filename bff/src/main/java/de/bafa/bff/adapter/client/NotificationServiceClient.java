@@ -12,7 +12,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-/** WebClient-backed adapter for the notification-service. */
+/**
+ * WebClient-backed adapter implementing {@link NotificationServicePort}. See {@link
+ * UserServiceClient} for the shared design notes (hexagonal role, bearer token propagation,
+ * timeout / fallback strategy).
+ */
 @Component
 public class NotificationServiceClient implements NotificationServicePort {
 
