@@ -1,4 +1,4 @@
-package io.janda.userservice;
+package de.bafa.userservice;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
