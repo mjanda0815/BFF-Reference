@@ -57,7 +57,7 @@ flowchart LR
 ### Hexagonal layout (BFF)
 
 ```
-io.janda.bff
+de.bafa.bff
 ├── BffApplication
 ├── config        # SecurityConfig, RedisConfig, WebClientConfig, CorsConfig, BffProperties
 ├── domain
