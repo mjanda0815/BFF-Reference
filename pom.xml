@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  BFF Reference Architecture — aggregator POM.
+
+  This POM is *only* a Maven reactor: it groups the four runnable modules
+  (bff + three downstream microservices) so a developer exploring the
+  reference can build and test everything with a single `mvn verify`
+  from the repository root.
+
+  Each child module remains **self-contained** on purpose:
+    * Its own Spring Boot parent (spring-boot-starter-parent).
+    * Its own dependency list, JaCoCo gate, and packaging config.
+
+  Rationale: the stack is meant as a *copy-paste blueprint*. A team that
+  adopts only the BFF, or only one downstream service, should be able to
+  cut it out of the reactor without inheriting shared parent-POM magic
+  that would then need to be replicated. Keep modules independent; let
+  this file do nothing but list them.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.bafa</groupId>
+    <artifactId>bff-reference-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>bff-reference-parent</name>
+    <description>Aggregator POM for the BAFA BFF reference architecture.</description>
+
+    <modules>
+        <module>bff</module>
+        <module>services/user-service</module>
+        <module>services/notification-service</module>
+        <module>services/activity-service</module>
+    </modules>
+</project>
