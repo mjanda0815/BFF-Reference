@@ -1,4 +1,4 @@
-package io.janda.activityservice;
+package de.bafa.activityservice;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

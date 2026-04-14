@@ -1,4 +1,4 @@
-package io.janda.activityservice;
+package de.bafa.activityservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

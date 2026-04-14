@@ -1,4 +1,4 @@
-package io.janda.activityservice;
+package de.bafa.activityservice;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
