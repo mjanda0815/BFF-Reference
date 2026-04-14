@@ -9,7 +9,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** REST endpoint that returns notifications for the authenticated user. */
+/**
+ * REST endpoint that returns notifications for the authenticated user.
+ *
+ * <p>Like the user-service controller, this returns synthetic data — the value in the reference
+ * is the <em>shape</em> of the endpoint (bearer-protected, derives identity from the JWT
+ * subject, returns a {@code {unreadCount, items}} envelope) rather than the data source.
+ */
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {
