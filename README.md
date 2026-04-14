@@ -9,6 +9,15 @@ patterns end-to-end — security, session handling, parallel aggregation,
 hexagonal layering, test coverage and accessibility — in a way that can be
 launched locally with a single command.
 
+> **BAFA blueprint note.** This repository is maintained as a *reference template*
+> for new BAFA projects. All Java packages live under the `de.bafa.*` namespace
+> (e.g. `de.bafa.bff`, `de.bafa.userservice`) and Maven coordinates use the
+> `de.bafa` groupId. When copying a module as the starting point for a new
+> product, keep the role-based artifact names (`bff`, `user-service`, …) and
+> introduce a product-specific sub-namespace if needed (e.g.
+> `de.bafa.<produkt>.bff`). Every class carries a didactic JavaDoc that
+> explains the pattern it demonstrates — read the source, not just this README.
+
 ---
 
 ## Architecture at a glance
@@ -55,14 +64,15 @@ logout) lives in [`docs/architecture.md`](docs/architecture.md).
 
 ```
 bff-reference/
+├── pom.xml                     # aggregator POM — one `mvn verify` for the whole stack
 ├── docker-compose.yml          # one-shot bring-up of the whole stack
 ├── .env.example                # all configurable values
 ├── keycloak/                   # realm export + Keycloak Dockerfile
-├── bff/                        # Spring Boot 3 BFF (WebFlux)
+├── bff/                        # Spring Boot 3 BFF (WebFlux) — de.bafa.bff
 ├── services/
-│   ├── user-service/           # Spring Boot 3, Resource Server
-│   ├── notification-service/
-│   └── activity-service/
+│   ├── user-service/           # Spring Boot 3 Resource Server — de.bafa.userservice
+│   ├── notification-service/   #                                  de.bafa.notificationservice
+│   └── activity-service/       #                                  de.bafa.activityservice
 ├── frontend/                   # Angular 21 SPA, served by nginx
 └── docs/
     ├── architecture.md
@@ -211,19 +221,23 @@ The Keycloak admin UI is at <http://localhost:8080> using
 
 ### Backend (BFF + services)
 
+The repository root holds an aggregator POM so the entire stack builds in one
+shot:
+
 ```bash
-cd bff && mvn verify
+mvn verify         # builds and tests all four modules
 ```
 
-`mvn verify` runs:
+To work on a single module, run `mvn verify` inside that module's directory.
+
+`mvn verify` runs (per module):
 
 - Unit tests (`*Test.java`, surefire)
-- Integration tests (`*IT.java`, failsafe, Testcontainers)
+- Integration tests (`*IT.java`, failsafe, Testcontainers — BFF only)
 - JaCoCo coverage gate: ≥ 80 % line, ≥ 70 % branch — the build fails on
-  underrun.
-
-The other three services follow the same layout. Run `mvn verify` inside any
-of them or from the project root with a multi-module wrapper if you add one.
+  underrun. All four modules enforce the same thresholds so the blueprint
+  demonstrates a consistent quality bar; bootstrap classes and trivial
+  record DTOs are excluded from the gate.
 
 ### Frontend
 
