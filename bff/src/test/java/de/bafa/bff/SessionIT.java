@@ -40,7 +40,7 @@ class SessionIT {
 
   @Container
   static final RedisContainer REDIS =
-      new RedisContainer("redis:7-alpine").withExposedPorts(6379);
+      new RedisContainer("redis:8-alpine").withExposedPorts(6379);
 
   @LocalServerPort private int port;
 

@@ -53,7 +53,7 @@ class DashboardIT {
 
   @Container
   static final RedisContainer REDIS =
-      new RedisContainer("redis:7-alpine").withExposedPorts(6379);
+      new RedisContainer("redis:8-alpine").withExposedPorts(6379);
 
   private static final MockWebServer USER_SERVICE = startServer();
   private static final MockWebServer NOTIFICATION_SERVICE = startServer();
