@@ -1,22 +1,31 @@
 package de.bafa.bff.config;
 
 import de.bafa.bff.BffApplication;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientService;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 
 @SpringBootTest(
     classes = BffApplication.class,
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "management.health.redis.enabled=false")
 class SecurityConfigTest {
 
-  @Autowired private WebTestClient webTestClient;
+  @LocalServerPort private int port;
 
-  @MockBean private ReactiveOAuth2AuthorizedClientService authorizedClientService;
+  private WebTestClient webTestClient;
+
+  @MockitoBean private ReactiveOAuth2AuthorizedClientService authorizedClientService;
+
+  @BeforeEach
+  void setupClient() {
+    webTestClient = WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
+  }
 
   @Test
   void unauthorizedApiCallReturns401() {
