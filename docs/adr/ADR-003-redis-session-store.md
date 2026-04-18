@@ -37,7 +37,7 @@ Lettuce-Treiber.
 - **TTL inklusive.** Redis-Keys haben ein natives TTL; Spring Session
   verknüpft das Session-Timeout mit diesem TTL, sodass abgelaufene
   Sessions sich selbst aufräumen.
-- **Geringer Betriebsaufwand.** Ein einzelner `redis:7-alpine`-Container
+- **Geringer Betriebsaufwand.** Ein einzelner `redis:8-alpine`-Container
   ohne Persistenz (`--save "" --appendonly no`) reicht als Session-Store
   aus — Sessions sind per Definition ephemer, Verluste bei Redis-Ausfall
   sind akzeptabel (Nutzer loggen sich einfach erneut ein).

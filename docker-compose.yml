@@ -29,7 +29,7 @@ services:
       - bff-net
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: bff-redis
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:
