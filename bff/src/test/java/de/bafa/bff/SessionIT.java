@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.redis.testcontainers.RedisContainer;
 import java.time.Duration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -40,7 +42,9 @@ class SessionIT {
   static final RedisContainer REDIS =
       new RedisContainer("redis:7-alpine").withExposedPorts(6379);
 
-  @Autowired private WebTestClient webTestClient;
+  @LocalServerPort private int port;
+
+  private WebTestClient webTestClient;
 
   @Autowired private ReactiveStringRedisTemplate redisTemplate;
 
@@ -48,6 +52,11 @@ class SessionIT {
   static void registerProperties(DynamicPropertyRegistry registry) {
     registry.add("spring.data.redis.host", REDIS::getHost);
     registry.add("spring.data.redis.port", REDIS::getFirstMappedPort);
+  }
+
+  @BeforeEach
+  void setupClient() {
+    webTestClient = WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
   }
 
   @Test
