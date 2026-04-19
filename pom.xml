@@ -35,4 +35,61 @@
         <module>services/notification-service</module>
         <module>services/activity-service</module>
     </modules>
+
+    <!--
+      Security scan wired into every `mvn verify` on the aggregator.
+      It deliberately lives here — not in the child POMs — because the
+      OWASP aggregate goal walks the whole reactor once and produces a
+      single merged report at target/dependency-check-report.{html,json}.
+
+      First run downloads the NVD data (~1 GB) and takes 20-40 min. With
+      a free NVD API key (env var NVD_API_KEY) it finishes in ~2 min.
+      Subsequent runs reuse the cached NVD data under
+      ~/.m2/repository/org/jeremylong/open-vulnerability-store/.
+
+      failBuildOnCVSS=7 fails the build on HIGH or CRITICAL (CVSSv3 >= 7).
+      False positives must be suppressed in dependency-check-suppressions.xml
+      at the repo root — each entry requires a <notes> block explaining WHY
+      the CVE does not apply, so the reasoning survives future re-audits.
+
+      Override knobs:
+        -DskipOwasp                — skip the scan for a single build
+        -DfailBuildOnCVSS=<n>      — adjust severity gate (e.g. 8 = CRITICAL only)
+        -DossindexAnalyzerEnabled=true   — re-enable OSS Index (requires reg'd token)
+    -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>12.1.0</version>
+                <configuration>
+                    <failBuildOnCVSS>7</failBuildOnCVSS>
+                    <skip>${skipOwasp}</skip>
+                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                    <!-- OSS Index is unauthenticated-rate-limited and flakey on hobby-scale scans. -->
+                    <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                    <suppressionFiles>
+                        <suppressionFile>${maven.multiModuleProjectDirectory}/dependency-check-suppressions.xml</suppressionFile>
+                    </suppressionFiles>
+                    <formats>
+                        <format>HTML</format>
+                        <format>JSON</format>
+                    </formats>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>aggregate</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <properties>
+        <skipOwasp>false</skipOwasp>
+    </properties>
 </project>
