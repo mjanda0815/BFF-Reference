@@ -19,7 +19,7 @@
     <description>Backend for Frontend reference implementation</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.14</jacoco.version>
     </properties>
