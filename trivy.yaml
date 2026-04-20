@@ -1,0 +1,25 @@
+# Trivy configuration
+# Docs: https://trivy.dev/latest/docs/references/configuration/config-file/
+#
+# This file is picked up automatically when `trivy` is invoked from the
+# repository root. Its purpose here is to scope the scan so that findings
+# surface on artifacts we actually ship, not on local-only development props.
+#
+# For suppressing individual findings (CVE IDs, misconfig IDs, etc.) see
+# `.trivyignore`. For Java dependency scan false-positives coming out of
+# OWASP Dependency-Check (`mvn verify`) see `dependency-check-suppressions.xml`.
+
+scan:
+  # Paths to skip during filesystem / config / image scans.
+  #
+  # `keycloak/` holds a Dockerfile that pulls `quay.io/keycloak/keycloak:<ver>`
+  # for the docker-compose demo only. Keycloak's base image ships with a long
+  # tail of third-party libraries whose CVE list churns upstream; those are
+  # Keycloak's responsibility to patch, not this reference project's. Any
+  # real deployment uses an externally operated Keycloak instance, so scanning
+  # the dev-only Dockerfile here would only produce noise.
+  #
+  # Remove this entry if you ever ship the bundled Keycloak image to a real
+  # environment — at that point the CVEs DO become your problem.
+  skip-dirs:
+    - keycloak

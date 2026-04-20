@@ -265,6 +265,55 @@ konfigurierten Karma-/Jest-Harness aus.
 
 ---
 
+## Container-Vulnerability-Scans (Trivy)
+
+Ergänzend zum Java-Dependency-Scan (OWASP Dependency-Check im `mvn verify`)
+werden die Container-Artefakte dieses Repositories üblicherweise mit
+[Trivy](https://trivy.dev) geprüft. Im Repository-Root liegen zwei Dateien,
+die das Verhalten des Scanners steuern:
+
+| Datei              | Zweck                                                                                                                                                                              |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `trivy.yaml`       | Globale Scanner-Konfiguration, wird automatisch eingelesen, wenn `trivy` aus dem Repo-Root gestartet wird. Regelt hier primär **pfadbasierte Ausschlüsse** (`scan.skip-dirs`).       |
+| `.trivyignore`     | **Einzel-Finding-Suppressions**: eine Zeile pro CVE-/Finding-ID. Jede Zeile MUSS kommentiert sein (Grund, Verantwortliche*r, Ablaufdatum via `exp:YYYY-MM-DD`).                      |
+
+### Warum zwei Dateien?
+
+Die beiden Mechanismen decken unterschiedliche Fälle ab und sollten nicht
+vermischt werden:
+
+- **Pfadbasiert (`trivy.yaml` → `skip-dirs`)** eignet sich, wenn ein ganzer
+  Bereich des Repos nicht Teil des ausgelieferten Artefakts ist — etwa ein
+  reiner Entwickler-Container, dessen Basis-Image upstream gepflegt wird.
+  In diesem Repo ist das der Fall für `keycloak/`: Das dortige Dockerfile
+  existiert nur, damit `docker compose up` lokal einen IdP mitstartet. Ein
+  produktiver Einsatz nutzt eine extern betriebene Keycloak-Instanz, sodass
+  die CVEs des Keycloak-Basis-Images hier weder reproduziert noch gepatcht
+  werden sollten. Wer den Keycloak-Container doch produktiv ausrollt, muss
+  diesen Eintrag entfernen und die Befunde dann auch bewerten.
+- **Pro Finding (`.trivyignore`)** eignet sich für gezielte, begründete
+  Ausnahmen eines *einzelnen* CVE oder Finding-IDs, die nachweislich nicht
+  zutreffen (nicht erreichbarer Code-Pfad, Keyword-Fehltreffer). Das ist das
+  direkte Pendant zu `dependency-check-suppressions.xml` auf Maven-Seite und
+  folgt demselben Prinzip: jede Ausnahme ist ein dokumentierter, ablaufender
+  Vertrag, keine stille Unterdrückung.
+
+Java-Dependency-Befunde landen **nicht** in `.trivyignore`, sondern in
+`dependency-check-suppressions.xml` — das ist ein separater Scanner (OWASP
+Dependency-Check), der mit eigenem Suppression-Schema im Maven-Build läuft.
+
+### Scan lokal ausführen
+
+```bash
+# Filesystem-Scan (nimmt trivy.yaml + .trivyignore automatisch)
+trivy fs .
+
+# Image-Scan für ein konkret gebautes App-Image
+trivy image bff-reference/bff:latest
+```
+
+---
+
 ## Barrierefreiheit (BITV 2.0 / WCAG 2.1 AA)
 
 Barrierefreiheit wird als harte Anforderung behandelt, nicht als
