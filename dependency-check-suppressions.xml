@@ -2,22 +2,38 @@
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
 
     <!--
-      OWASP Dependency-Check matches CPEs by keyword, which produces occasional
-      false positives when two unrelated projects share a substring. Each
-      <suppress> block below documents why a specific CVE does NOT apply to
-      our artifact — remove a block and re-scan if you suspect the reasoning
-      has changed upstream.
+      Zweck dieser Datei
+      ==================
+      Diese Datei dokumentiert False-Positive-Suppressions für den OWASP
+      Dependency-Check-Scanner im CI-Security-Gate. Dependency-Check matcht
+      CPEs heuristisch über Keyword-Substrings (nicht über purl), wodurch
+      vereinzelt Treffer entstehen, bei denen die CVE ein völlig anderes
+      Projekt mit ähnlich klingendem Namen betrifft.
+
+      Dokumentation zum Suppression-Format:
+        https://jeremylong.github.io/DependencyCheck/general/suppression.html
+      Schema:
+        https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd
+
+      Regeln für neue Einträge
+      ~~~~~~~~~~~~~~~~~~~~~~~~
+      - Jede Suppression erfordert eine nachvollziehbare Begründung in
+        <notes>, warum die CVE das gescannte Artefakt technisch NICHT
+        betrifft. Niemals "unterdrücken, um den Scan grün zu bekommen".
+      - <packageUrl> grundsätzlich als regex ohne Versionspin, damit die
+        Suppression Dependency-Upgrades überlebt.
+      - Jede Suppression trägt ein until-Datum (+12 Monate), damit
+        Einträge zwangsweise periodisch re-reviewt werden.
+      - Einträge alphabetisch nach groupId/artifactId sortiert halten,
+        damit Merges konfliktfrei bleiben.
     -->
 
-    <suppress>
+    <suppress until="2027-04-20Z">
         <notes>
-            CVE-2025-15104 targets validator.nu (Nu Html Checker,
-            github.com/validator/validator) — an HTML validation service by
-            Henri Sivonen. Dependency-Check matches on the substring
-            "validator" in the CPE and misattributes it to
-            org.hibernate.validator:hibernate-validator, which is the Jakarta
-            Bean Validation reference implementation (unrelated project, no
-            HTML fetching, no SSRF surface).
+CVE-2025-15104 betrifft den Nu Html Checker (validator.nu, Maven-Koordinate nu.validator:validator) — eine HTML-Validierungsanwendung, die URLs aus Benutzereingaben abruft. Quelle: https://github.com/advisories/GHSA-fccg-7w3p-w66f
+Dependency-Check matcht auf dem CPE-Substring "validator" und ordnet die CVE fälschlich org.hibernate.validator:hibernate-validator zu, also der Jakarta-Bean-Validation-Referenzimplementierung.
+Technisch nicht zutreffend: Hibernate Validator führt keine HTTP-Fetches aus, hat keine SSRF-Angriffsfläche und liegt in einem völlig anderen Projektnamespace (Hibernate/Red Hat vs. validator.nu/Henri Sivonen). Die CVE-Payload (DNS-Rebinding gegen Hostname-Blocklist) ist in Bean-Validation-Constraints nicht instanziierbar.
+Review: 2026-04-20, Martin Janda (martin@janda.io). Re-Review spätestens zum until-Datum.
         </notes>
         <packageUrl regex="true">^pkg:maven/org\.hibernate\.validator/hibernate-validator@.*$</packageUrl>
         <cve>CVE-2025-15104</cve>
