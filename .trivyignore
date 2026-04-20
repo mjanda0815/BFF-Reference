@@ -1,0 +1,36 @@
+# Trivy ignore file
+# Docs: https://trivy.dev/latest/docs/configuration/filtering/#by-finding-ids
+#
+# One finding ID per line. Supported IDs include CVEs, GHSAs, secret rule IDs,
+# misconfiguration IDs, and license findings. Blank lines and `#` comments are
+# allowed. An optional `exp:YYYY-MM-DD` suffix lets an entry auto-expire.
+#
+# -----------------------------------------------------------------------------
+# WHEN TO ADD AN ENTRY HERE
+# -----------------------------------------------------------------------------
+# Only suppress individual findings that are genuinely NOT APPLICABLE to this
+# project — e.g. a CVE in a code path that is not reachable, or a false-positive
+# keyword match. Every entry MUST be accompanied by a comment that records:
+#   - why the finding does not apply,
+#   - who decided it (ticket/PR reference),
+#   - an expiry date so the assumption gets re-validated.
+#
+# Do NOT use this file to hide unpatched vulnerabilities you simply do not
+# want to fix today — that defeats the purpose of a scanner.
+#
+# -----------------------------------------------------------------------------
+# WHEN TO USE SOMETHING ELSE INSTEAD
+# -----------------------------------------------------------------------------
+# Per-finding suppressions quickly become unmaintainable for a whole image
+# whose CVEs churn upstream (e.g. the local-only Keycloak container used for
+# the docker-compose demo). For that case, exclude the PATH rather than list
+# every CVE — see `trivy.yaml` (`scan.skip-dirs`) in this repo.
+#
+# For Java dependency findings coming out of `mvn verify` (OWASP Dependency-
+# Check), use `dependency-check-suppressions.xml` instead; that is a separate
+# scanner with its own suppression format.
+#
+# -----------------------------------------------------------------------------
+# EXAMPLE (keep commented-out, this repo currently suppresses nothing)
+# -----------------------------------------------------------------------------
+# CVE-2024-12345 exp:2026-12-31  # not reachable: we never deserialize user input, see PR #42
