@@ -303,52 +303,79 @@ konfigurierten Karma-/Jest-Harness aus.
 
 ---
 
-## Container-Vulnerability-Scans (Trivy)
+## Dependency- und Vulnerability-Hygiene
 
-Ergänzend zum Java-Dependency-Scan (OWASP Dependency-Check im `mvn verify`)
-werden die Container-Artefakte dieses Repositories üblicherweise mit
-[Trivy](https://trivy.dev) geprüft. Im Repository-Root liegen zwei Dateien,
-die das Verhalten des Scanners steuern:
+Das Template kommt mit drei koordinierten Hygiene-Mechanismen, die
+zusammen den CVE-Gürtel dicht halten:
+
+| Mechanismus                | Zuständig für                                   | Ort                                         |
+|----------------------------|-------------------------------------------------|---------------------------------------------|
+| **OWASP Dependency-Check** | Java-Dependencies (Maven)                       | Plugin im Root-`pom.xml`, Suppressions in `dependency-check-suppressions.xml` |
+| **Trivy**                  | Container-Images und Filesystem (inkl. npm)     | `trivy.yaml` (Scoping) + `.trivyignore` (Einzel-Suppressions) |
+| **Dependabot**             | Automatische PRs für Bumps in Maven/npm/Docker  | `.github/dependabot.yml`                    |
+
+### OWASP Dependency-Check (Maven-Seite)
+
+Eingebaut in den `mvn verify`-Lauf. Gate: Build bricht bei CVSSv3 ≥ 7.
+Scope: alle Maven-Dependencies reactor-weit (59 Artefakte im aktuellen
+Stand, **0 Findings**).
+
+```bash
+mvn -B -ntp verify                        # OWASP läuft mit
+mvn -B -ntp -DskipOwasp verify            # nur Build + Tests, kein CVE-Scan
+```
+
+**NVD-Cache & API-Key.** Der erste Scan lädt die NVD-Datenbank (~1 GB)
+herunter und kann ohne API-Key 20–40 min dauern. Mit einem kostenlosen
+[NVD-API-Key](https://nvd.nist.gov/developers/request-an-api-key)
+reduziert sich das auf ~2 min:
+
+```bash
+export NVD_API_KEY=<dein-key>             # lokal: in ~/.bashrc persistieren
+# In CI (GitHub Actions): als Secret hinterlegen, via env: NVD_API_KEY.
+```
+
+False-Positive-Suppressions landen in
+[`dependency-check-suppressions.xml`](dependency-check-suppressions.xml) —
+jede Ausnahme braucht Begründung und ein `until`-Datum (siehe Kopfkommentar
+der Datei).
+
+### Trivy (Container- und FS-Scan)
+
+Zwei Dateien steuern Scope und Suppressions:
 
 | Datei              | Zweck                                                                                                                                                                              |
 |--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `trivy.yaml`       | Globale Scanner-Konfiguration, wird automatisch eingelesen, wenn `trivy` aus dem Repo-Root gestartet wird. Regelt hier primär **pfadbasierte Ausschlüsse** (`scan.skip-dirs`).       |
-| `.trivyignore`     | **Einzel-Finding-Suppressions**: eine Zeile pro CVE-/Finding-ID. Jede Zeile MUSS kommentiert sein (Grund, Verantwortliche*r, Ablaufdatum via `exp:YYYY-MM-DD`).                      |
-
-### Warum zwei Dateien?
+| `trivy.yaml`       | Globale Scanner-Konfiguration, wird automatisch eingelesen. **Pfadbasierte Ausschlüsse** (`scan.skip-dirs`) — hier z. B. `keycloak/`, weil das Dockerfile nur dem Docker-Compose-Demo dient und produktiv eine extern betriebene Keycloak-Instanz genutzt wird. |
+| `.trivyignore`     | **Einzel-Finding-Suppressions**: eine Zeile pro CVE-/Finding-ID, jede mit Begründung und Ablaufdatum (`exp:YYYY-MM-DD`).                                                            |
 
 Die beiden Mechanismen decken unterschiedliche Fälle ab und sollten nicht
-vermischt werden:
-
-- **Pfadbasiert (`trivy.yaml` → `skip-dirs`)** eignet sich, wenn ein ganzer
-  Bereich des Repos nicht Teil des ausgelieferten Artefakts ist — etwa ein
-  reiner Entwickler-Container, dessen Basis-Image upstream gepflegt wird.
-  In diesem Repo ist das der Fall für `keycloak/`: Das dortige Dockerfile
-  existiert nur, damit `docker compose up` lokal einen IdP mitstartet. Ein
-  produktiver Einsatz nutzt eine extern betriebene Keycloak-Instanz, sodass
-  die CVEs des Keycloak-Basis-Images hier weder reproduziert noch gepatcht
-  werden sollten. Wer den Keycloak-Container doch produktiv ausrollt, muss
-  diesen Eintrag entfernen und die Befunde dann auch bewerten.
-- **Pro Finding (`.trivyignore`)** eignet sich für gezielte, begründete
-  Ausnahmen eines *einzelnen* CVE oder Finding-IDs, die nachweislich nicht
-  zutreffen (nicht erreichbarer Code-Pfad, Keyword-Fehltreffer). Das ist das
-  direkte Pendant zu `dependency-check-suppressions.xml` auf Maven-Seite und
-  folgt demselben Prinzip: jede Ausnahme ist ein dokumentierter, ablaufender
-  Vertrag, keine stille Unterdrückung.
+vermischt werden: `skip-dirs` für ganze Bereiche, die nicht zum Artefakt
+gehören; `.trivyignore` für gezielte, begründete Einzelausnahmen.
 
 Java-Dependency-Befunde landen **nicht** in `.trivyignore`, sondern in
-`dependency-check-suppressions.xml` — das ist ein separater Scanner (OWASP
-Dependency-Check), der mit eigenem Suppression-Schema im Maven-Build läuft.
-
-### Scan lokal ausführen
+`dependency-check-suppressions.xml` — das ist ein separater Scanner mit
+eigenem Suppression-Schema.
 
 ```bash
 # Filesystem-Scan (nimmt trivy.yaml + .trivyignore automatisch)
-trivy fs .
+trivy fs --scanners vuln --timeout 15m .
 
 # Image-Scan für ein konkret gebautes App-Image
 trivy image bff-reference/bff:latest
 ```
+
+Auf HIGH/CRITICAL läuft der Scan reactor-weit grün.
+
+### Dependabot
+
+[`.github/dependabot.yml`](.github/dependabot.yml) konfiguriert wöchentliche
+Auto-PRs für Maven (pro Modul, damit die Self-Containedness nicht verloren
+geht), npm (mit einer Angular-Gruppe, weil Angular-Pakete in Lockstep
+released werden) und Docker (pro Dockerfile). PR-Prefix: `chore(deps)`.
+
+Aktivierung im GitHub-Repo: Settings → Security → „Enable Dependabot
+version updates".
 
 ---
 

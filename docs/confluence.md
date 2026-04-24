@@ -222,123 +222,37 @@ also auch nicht versehentlich (oder durch injizierten Fremdcode) leaken.
 
 ## 7. Ein neues BAFA-Produkt auf Basis des Templates starten
 
-Dieser Abschnitt ist die **Schritt-für-Schritt-Anleitung** für Teams, die
-das Template als Ausgangspunkt nutzen.
+Die **vollständige Schritt-für-Schritt-Anleitung** liegt in
+[`getting-started-new-project.md`](getting-started-new-project.md).
+Sie deckt — mit copy-and-paste-fähigen Kommandos —:
 
-### 7.1 Grund-Setup
+1. Repo-Provisionierung (GitHub „Use this template" vs. Fork vs. Flat-Copy)
+2. Produkt-Namensgebung und die **Monorepo-vs.-Polyrepo-Entscheidung**
+   (was dieses Template voreinstellt, wann splitten)
+3. Namespace-Refactoring (`sed`/`find`-Rezepte, Modul-für-Modul grün halten)
+4. Keycloak-Realm- und `.env`-Anpassungen
+5. Ersten Smoke-Test (`docker compose up`)
+6. Eigenen Microservice hinzufügen (Service-Kopier-Vorlage + BFF-Side-Steps)
+7. Frontend anpassen, ohne den BFF-Vertrag zu brechen
+8. Konfigurations-Härtung vor Go-Live
 
-1. **Repository klonen/forken** in die Team-eigene Gruppe (oder
-   als „Template-Repo" bei GitHub/GitLab markieren und `Use this template`
-   klicken).
-2. **Produkt-Namespace festlegen.** Empfehlung:
-   - Kleineres Produkt: `de.bafa.<produkt>` mit Unter-Modulen
-     (`de.bafa.<produkt>.bff`, `de.bafa.<produkt>.userservice`).
-   - Entscheidung dokumentieren — am besten als neuer ADR in `docs/adr/`.
-3. **Java-Package und Maven-`groupId` umbenennen** (siehe Abschnitt 7.2).
-4. **Artefaktnamen und Docker-Namen** an Produkt anpassen
-   (`docker-compose.yml`, `pom.xml` `<artifactId>`/`<finalName>`).
-5. **Keycloak-Realm umbenennen** (`keycloak/realm-export.json` →
-   `realm`, `clientId`, Redirect-URIs).
-6. **`.env.example` überprüfen**, Produkt-spezifische Defaults setzen.
+Die ursprüngliche Kurzfassung in diesem Confluence-Export verwies früher
+auf sich selbst; seit Version 1.1.0 wird die Pflege zentral im neuen Guide
+geführt, damit nicht zwei Stellen parallel driften.
 
-### 7.2 Namespace-Refactoring
+### 7.1 Produktiv-Checkliste (Kurzfassung)
 
-Das mitgelieferte Template liegt bereits unter `de.bafa.*`. Für das eigene
-Produkt einmalig umziehen:
+Der Go-Live-Abschnitt aus dem Guide, hier als Copy für den schnellen Scan:
 
-```bash
-# Beispiel: Produkt "foerderportal"
-OLD=de/bafa
-NEW=de/bafa/foerderportal
-
-# Packages verschieben
-find . -type d -path "*/$OLD/bff" -exec bash -c 'mkdir -p "$(dirname {})/../foerderportal" && git mv {} "$(dirname {})/../foerderportal/bff"' \;
-# ... analog für die Services
-
-# Package-Deklarationen + Imports anpassen
-find . -name "*.java" -exec sed -i "s|de\.bafa\.bff|de.bafa.foerderportal.bff|g" {} +
-# ... analog für userservice, notificationservice, activityservice
-
-# POM groupIds
-find . -name "pom.xml" -exec sed -i "s|<groupId>de\.bafa</groupId>|<groupId>de.bafa.foerderportal</groupId>|" {} +
-```
-
-Anschließend `mvn verify` aus dem Root — fährt der Reactor grün durch, ist
-der Umzug sauber.
-
-> **Tipp:** Das Template hat bereits einen dokumentierten Commit-Verlauf
-> für genau diesen Umzug (io.janda → de.bafa). Die Commit-Messages und die
-> Reihenfolge (Modul-für-Modul, nach jedem Modul `mvn verify`) sind als
-> Blaupause nutzbar.
-
-### 7.3 Fachliche Services anpassen
-
-Die drei Demo-Services liefern synthetische Daten aus JWT-Claims. Für
-echte Fachlichkeit:
-
-1. **Persistenzschicht hinzufügen** (z. B. Spring Data JPA,
-   `spring-boot-starter-data-jpa` + Flyway/Liquibase). Das Template
-   verzichtet bewusst darauf, um nicht von einer spezifischen DB-Technologie
-   abhängig zu sein.
-2. **Domain-Modell ersetzen.** Der Record `UserProfile` im user-service ist
-   exemplarisch; das eigene Modell gehört in dasselbe Paket oder ein
-   Unter-Paket `domain/`.
-3. **Endpunkte erweitern.** Das Template zeigt nur `GET /api/<resource>/me`;
-   je nach Fach-Use-Case kommen CRUD-Endpunkte dazu. Die `SecurityConfig`
-   muss dabei **nicht** angefasst werden, solange alle neuen Endpunkte
-   authentifiziert sind (das ist der Default durch `anyRequest()
-   .authenticated()`).
-4. **Aggregation im BFF anpassen.** Neue Downstream-Felder im
-   `DashboardData`-Record oder zusätzliche BFF-Endpunkte für andere
-   Ansichten.
-
-### 7.4 Neuen Microservice hinzufügen
-
-Am schnellsten: einen der drei Demo-Services kopieren und umbenennen.
-
-```bash
-cp -r services/user-service services/meinservice
-# In services/meinservice:
-#   - pom.xml: artifactId + finalName + package-Refs aktualisieren
-#   - src/main/java/de/bafa/userservice → src/main/java/de/bafa/meinservice
-#   - SecurityConfig.java und Application.java übernehmen (identisches Muster)
-#   - Controller + Record(s) ersetzen
-```
-
-Dann im BFF ergänzen:
-
-1. Neuer Port in `de.bafa.bff.domain.port`.
-2. Neues Domain-Record in `de.bafa.bff.domain.model`.
-3. Neuer Adapter in `de.bafa.bff.adapter.client`.
-4. `WebClientConfig`: neue Bean + Konstante.
-5. `BffProperties`: neue URL-Property.
-6. `DashboardAggregationService` (oder eigener Service): neuen Mono in
-   `Mono.zip` einhängen.
-7. Im Root-`pom.xml` unter `<modules>` eintragen.
-
-### 7.5 Frontend anpassen
-
-- `frontend/src/app/` — Komponenten ersetzen, die Typen an das eigene
-  Domain-Modell anpassen.
-- Authentifizierungs-Logik (Interceptor für 401 → `/login`, CSRF-Handling)
-  **nicht** anfassen — ist Teil des BFF-Vertrags.
-- Accessibility-Regeln beibehalten: siehe dedizierte Sektion in der README.
-
-### 7.6 Konfiguration produktiv setzen
-
-Vor dem Go-Live:
-
-- [ ] `bff.cookie-secure=true`
-- [ ] `bff.frontend-origin` auf echten HTTPS-Host
-- [ ] Keycloak mit echtem Realm und Redirect-URIs
+- [ ] `bff.cookie-secure=true` in allen Nicht-Lokalumgebungen
+- [ ] `bff.frontend-origin` auf eure echte HTTPS-Domain
+- [ ] Keycloak mit echtem Realm + whitelisted Redirect-URIs
 - [ ] Redis mit Passwort + TLS (`spring.data.redis.ssl.enabled=true`)
-- [ ] Client-Secret des OIDC-Clients aus Vault/Secret-Store, nicht `.env`
-- [ ] Backup-Strategie für Redis (oder akzeptieren, dass Sessions verloren
-      gehen — für BFF meist okay)
-- [ ] `prometheus`-Endpunkt nur intern exponieren
-- [ ] Logstash-JSON-Logging in das BAFA-Log-Aggregat einbinden
-- [ ] JaCoCo-Gates an Produkt-Kontext anpassen (Default: 80 % Line / 70 %
-      Branch) — nicht senken, ohne explizite Freigabe
+- [ ] Client-Secret aus Vault/K8s-Secret, nicht `.env`
+- [ ] Redis-Backup-Strategie oder bewusster Sessions-gehen-verloren-Accept
+- [ ] `/actuator/prometheus` nur intern exponieren
+- [ ] Logstash-JSON-Appender in euer Log-Aggregat einhängen
+- [ ] JaCoCo-Gates (80 %/70 %) nicht senken — Ausnahmen nur mit ADR
 
 ---
 
