@@ -1,0 +1,205 @@
+# Dependabot configuration for the BFF reference architecture.
+#
+# Dependabot opens one pull request per outdated dependency against the
+# default branch on a configurable cadence. It covers three ecosystems
+# that live in this repo:
+#
+#   * Maven — one ecosystem entry per module, because each child POM
+#     is intentionally self-contained (its own Spring Boot parent,
+#     its own dependency list). A single entry at the repo root would
+#     only scan the aggregator POM and miss the child graphs.
+#   * npm — the Angular frontend.
+#   * Docker — one entry per Dockerfile, including the demo-only
+#     Keycloak image, so base-image CVEs surface as PRs rather than
+#     accumulating silently.
+#
+# Design notes
+# ============
+#   * `interval: weekly` batches noise into a single check-in rather
+#     than firing daily. A reference/blueprint repo doesn't need the
+#     faster cadence of a production service.
+#   * `open-pull-requests-limit: 5` caps concurrent PRs per ecosystem
+#     so the queue doesn't explode after a quiet period.
+#   * `groups` on the frontend collapses Angular core/devkit bumps
+#     into a single PR, because those packages release together and
+#     must land together to keep peer-dep ranges consistent.
+#   * `commit-message.prefix: "chore(deps)"` gives a uniform prefix
+#     that matches the manual bump commits already in the history,
+#     so automated and hand-crafted bumps blend cleanly in `git log`.
+#
+# Docs: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+version: 2
+
+updates:
+
+  # -----------------------------------------------------------------
+  # Maven — aggregator POM (only declares dependency-check-maven).
+  # -----------------------------------------------------------------
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "maven"
+
+  # -----------------------------------------------------------------
+  # Maven — BFF module (Spring Boot + WebFlux, testcontainers, etc.)
+  # -----------------------------------------------------------------
+  - package-ecosystem: "maven"
+    directory: "/bff"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "maven"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+      testcontainers:
+        patterns:
+          - "org.testcontainers:*"
+
+  # -----------------------------------------------------------------
+  # Maven — downstream microservices (identical dep sets, separate
+  # entries because Dependabot expects one directory per update
+  # stream). Spring Boot bumps are grouped per module so all three
+  # services upgrade together when a new Boot patch lands.
+  # -----------------------------------------------------------------
+  - package-ecosystem: "maven"
+    directory: "/services/user-service"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "maven"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+
+  - package-ecosystem: "maven"
+    directory: "/services/notification-service"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "maven"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+
+  - package-ecosystem: "maven"
+    directory: "/services/activity-service"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "maven"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot:*"
+
+  # -----------------------------------------------------------------
+  # npm — Angular frontend. Group Angular's packages because the
+  # framework releases its ~15 packages in lockstep; separate PRs
+  # per package would fail each other's peer-dep checks on merge.
+  # -----------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      angular:
+        patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+
+  # -----------------------------------------------------------------
+  # Docker — one entry per Dockerfile. Dependabot scans the FROM
+  # lines and opens a PR when a newer tag on the same channel
+  # (e.g. alpine minor line) becomes available.
+  # -----------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/bff"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/services/user-service"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/services/notification-service"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/services/activity-service"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/keycloak"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
