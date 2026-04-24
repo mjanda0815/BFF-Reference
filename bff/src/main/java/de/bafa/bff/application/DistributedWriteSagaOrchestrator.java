@@ -6,16 +6,21 @@ import de.bafa.bff.domain.model.SagaStepEntry;
 import de.bafa.bff.domain.port.ActivityAnnouncementWritePort;
 import de.bafa.bff.domain.port.NotificationAnnouncementWritePort;
 import de.bafa.bff.domain.port.UserAnnouncementWritePort;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 /**
  * Backend orchestrator of the distributed-write saga.
@@ -33,6 +38,26 @@ import reactor.core.publisher.Mono;
  *
  * <p>Explicitly scoped to a per-invocation mutable state object ({@link SagaExecution}) so a
  * concurrent request never shares a log list or compensation stack with another.
+ *
+ * <h2>Resilience knobs</h2>
+ *
+ * <p>Each forward step is wrapped with two production-flavoured safety nets:
+ *
+ * <ul>
+ *   <li><b>Per-step timeout</b> ({@link #FORWARD_STEP_TIMEOUT}). A downstream that hangs gets
+ *       cancelled with a {@link TimeoutException}, which is treated as a transient failure and
+ *       retried. Caps the worst-case time a single forward step can block the saga.
+ *   <li><b>Retry with exponential backoff</b> on <em>transient</em> errors only
+ *       ({@link #FORWARD_RETRY_ATTEMPTS} attempts, initial delay
+ *       {@link #FORWARD_RETRY_INITIAL_BACKOFF}). Transient here means connection reset,
+ *       5xx responses or a step-level timeout — things a retry could plausibly fix.
+ *       Client errors (4xx, including validation failures) bypass retry. Relies on the
+ *       downstream stores being idempotent on the shared {@code announcementId}.
+ * </ul>
+ *
+ * <p>Compensations use the same per-step timeout but <b>no retry</b>: compensation is
+ * intentionally best-effort; retry loops there would lengthen the request and rarely help —
+ * the partial-failure outcome is the signal operators act on.
  */
 @Service
 public class DistributedWriteSagaOrchestrator {
@@ -43,6 +68,18 @@ public class DistributedWriteSagaOrchestrator {
   private static final String STEP_USER = "user-service.subscribe";
   private static final String STEP_NOTIFICATION = "notification-service.publish";
   private static final String STEP_ACTIVITY = "activity-service.logAnnouncement";
+
+  /** Per-forward-step timeout. A hanging downstream is cancelled + retried. */
+  static final Duration FORWARD_STEP_TIMEOUT = Duration.ofSeconds(5);
+
+  /** Per-compensation-step timeout. Compensation is best-effort; no retry. */
+  static final Duration COMPENSATION_STEP_TIMEOUT = Duration.ofSeconds(5);
+
+  /** Retry attempts after the initial call (so total calls = attempts + 1). */
+  static final long FORWARD_RETRY_ATTEMPTS = 2;
+
+  /** Initial backoff before the first retry; doubles on each subsequent attempt. */
+  static final Duration FORWARD_RETRY_INITIAL_BACKOFF = Duration.ofMillis(200);
 
   private final UserAnnouncementWritePort userPort;
   private final NotificationAnnouncementWritePort notificationPort;
@@ -123,6 +160,18 @@ public class DistributedWriteSagaOrchestrator {
         SagaStepEntry.PHASE_FORWARD, step, SagaStepEntry.STATUS_STARTED, "calling downstream");
     return forward
         .get()
+        .timeout(FORWARD_STEP_TIMEOUT)
+        .retryWhen(
+            Retry.backoff(FORWARD_RETRY_ATTEMPTS, FORWARD_RETRY_INITIAL_BACKOFF)
+                .filter(DistributedWriteSagaOrchestrator::isTransient)
+                .doBeforeRetry(
+                    signal ->
+                        log.info(
+                            "saga {}: retrying {} after transient error (attempt {}): {}",
+                            execution.announcementId,
+                            step,
+                            signal.totalRetries() + 1,
+                            rootMessage(signal.failure()))))
         .then(
             Mono.fromRunnable(
                 () -> {
@@ -180,6 +229,7 @@ public class DistributedWriteSagaOrchestrator {
     return compensation
         .action
         .get()
+        .timeout(COMPENSATION_STEP_TIMEOUT)
         .then(
             Mono.fromRunnable(
                 () ->
@@ -237,6 +287,29 @@ public class DistributedWriteSagaOrchestrator {
     }
     String msg = current.getMessage();
     return msg == null ? current.getClass().getSimpleName() : msg;
+  }
+
+  /**
+   * Classifies an error as transient (retry-worthy) or permanent.
+   *
+   * <p>Transient = a retry could plausibly fix it: connection reset, downstream 5xx response, or
+   * the step hit its own timeout. 4xx responses and anything else (programming errors, validation
+   * failures) are permanent — retrying them just burns latency.
+   *
+   * <p>Visibility is package-private so the orchestrator's unit test can pin the classification
+   * without reflection.
+   */
+  static boolean isTransient(Throwable t) {
+    if (t instanceof TimeoutException) {
+      return true;
+    }
+    if (t instanceof WebClientRequestException) {
+      return true; // connection reset, DNS failure, …
+    }
+    if (t instanceof WebClientResponseException response) {
+      return response.getStatusCode().is5xxServerError();
+    }
+    return false;
   }
 
   /** Per-invocation mutable state. Never shared across concurrent saga runs. */
