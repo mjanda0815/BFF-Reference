@@ -28,15 +28,4 @@
         damit Merges konfliktfrei bleiben.
     -->
 
-    <suppress until="2027-04-20Z">
-        <notes>
-CVE-2025-15104 betrifft den Nu Html Checker (validator.nu, Maven-Koordinate nu.validator:validator) — eine HTML-Validierungsanwendung, die URLs aus Benutzereingaben abruft. Quelle: https://github.com/advisories/GHSA-fccg-7w3p-w66f
-Dependency-Check matcht auf dem CPE-Substring "validator" und ordnet die CVE fälschlich org.hibernate.validator:hibernate-validator zu, also der Jakarta-Bean-Validation-Referenzimplementierung.
-Technisch nicht zutreffend: Hibernate Validator führt keine HTTP-Fetches aus, hat keine SSRF-Angriffsfläche und liegt in einem völlig anderen Projektnamespace (Hibernate/Red Hat vs. validator.nu/Henri Sivonen). Die CVE-Payload (DNS-Rebinding gegen Hostname-Blocklist) ist in Bean-Validation-Constraints nicht instanziierbar.
-Review: 2026-04-20, Martin Janda (martin@janda.io). Re-Review spätestens zum until-Datum.
-        </notes>
-        <packageUrl regex="true">^pkg:maven/org\.hibernate\.validator/hibernate-validator@.*$</packageUrl>
-        <cve>CVE-2025-15104</cve>
-    </suppress>
-
 </suppressions>
