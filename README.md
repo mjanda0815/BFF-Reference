@@ -177,12 +177,17 @@ Die Vorteile, die wir zeigen wollen:
   drei Microservices. Der Fan-out im BFF (`Mono.zip`, parallel, Timeout
   pro Service, fehlertolerant) hält die SPA dumm und die Netzwerk-
   Round-Trips gering.
-- **Orchestrierung komplexer Writes.** Für eine Ankündigung, die über
-  `user-`, `notification-` und `activity-service` konsistent gesetzt
-  werden muss, fährt der BFF eine **Saga mit expliziter Kompensation**
-  in Reverse-Order. Die SPA sendet *ein* Kommando und rendert das
-  zurückgegebene Ausführungsprotokoll verbatim — kein clientseitiger
-  Workflow-State, keine Kompensations-Logik im Browser. Siehe
+- **Orchestrierung komplexer Writes mit Saga-Resilienz.** Für eine
+  Ankündigung, die über `user-`, `notification-` und `activity-service`
+  konsistent gesetzt werden muss, fährt der BFF eine **Saga mit expliziter
+  Kompensation** in Reverse-Order. Forward-Steps sind durch einen
+  Per-Step-Timeout (5 s) und einen Exponential-Backoff-Retry (2 Versuche,
+  nur bei transienten 5xx-/Connection-/Timeout-Fehlern) geschützt; die
+  Downstream-Stores sind **idempotent** auf der `announcementId`, sodass
+  ein Retry nach verlorener Response keine Duplikate erzeugt. Die SPA
+  sendet *ein* Kommando und rendert das zurückgegebene
+  Ausführungsprotokoll verbatim — kein clientseitiger Workflow-State,
+  keine Kompensations-Logik im Browser. Siehe
   [ADR-006](docs/adr/ADR-006-write-saga.md) und das Demo-Panel im
   Dashboard (`POST /api/announcements`).
 - **Starke CSRF-Position.** Weil die SPA mit Cookies authentifiziert, wird

@@ -214,6 +214,26 @@ Kernpunkte gegenüber einer clientseitigen Saga:
   konkreten Step absichtlich scheitern zu lassen — so lässt sich die
   Kompensation in einer Live-Präsentation reproduzierbar zeigen.
 
+**Resilienz auf jedem Forward-Step.** Jeder Schritt ist durch Timeout und
+bounded Retry geschützt:
+
+- **Per-Step-Timeout** 5 s — ein hängender Downstream wird gecancelt; das
+  Signal (`TimeoutException`) wird als transient eingestuft und löst den
+  Retry aus.
+- **Retry mit Exponential Backoff** (2 Versuche, 200 ms Start) — ausschließlich
+  bei transienten Fehlern: `TimeoutException`, `WebClientRequestException`
+  (Connection-Reset, DNS-Fehler) und 5xx-Responses. 4xx-Responses und
+  Programmierfehler bypassen den Retry, weil ein Retry sie nicht reparieren
+  kann.
+- **Idempotente Downstream-Stores.** `save()` in den Services nutzt
+  `putIfAbsent`; ein Retry nach erfolgreich geschriebenem Forward-Step
+  aber verlorener HTTP-Response dupliziert nichts. Das ist der Vertrag,
+  auf dem der Retry aufsetzt.
+- **Kompensation bekommt denselben Per-Step-Timeout**, aber **kein Retry** —
+  Kompensation ist per Design Best-Effort; Fehler werden geloggt und
+  kippen das Saga-Outcome auf `failed`, damit Operatoren wissen, wo
+  manuell nachgeräumt werden muss.
+
 ### 4. Logout-Flow
 
 ```mermaid

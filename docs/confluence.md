@@ -95,7 +95,8 @@ soll die Entscheidungen verstehen — nicht nur abtippen.
 |---|---|---|
 | **Backend-for-Frontend** | `de.bafa.bff` (gesamt) | Tokens bleiben server-seitig, SPA spricht nur Session-Cookies. |
 | **Parallele Aggregation** | `DashboardAggregationService` | Ein SPA-Request = ein BFF-Response aus 3 Quellen via `Mono.zip`. |
-| **Verteilte Write-Saga** | `DistributedWriteSagaOrchestrator` | Ein SPA-Kommando = ein BFF-Workflow über 3 Services mit Kompensation in Reverse-Order. Siehe ADR-006. |
+| **Verteilte Write-Saga** | `DistributedWriteSagaOrchestrator` | Ein SPA-Kommando = ein BFF-Workflow über 3 Services mit Kompensation in Reverse-Order. Per-Step-Timeout + Retry-mit-Backoff auf transiente Fehler. Siehe ADR-006. |
+| **Idempotente Writes** | `AnnouncementSubscriptionStore` et al. | `putIfAbsent` pro `announcementId` — Retries erzeugen keine Duplikate. |
 | **Hexagonale Architektur** | `domain/port` + `adapter/client` | Application-Layer kennt nur Ports (Interfaces), nie WebClient. |
 | **Double-Submit-CSRF** | `SecurityConfig#csrfTokenRepository` | Cookie-Auth braucht expliziten CSRF-Schutz. |
 | **Session-Token-Lifecycle** | `SessionTokenService` | Access/Refresh-Token ausschließlich in Redis. |

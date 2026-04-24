@@ -1,7 +1,7 @@
 # ADR-006: Serverseitige Saga-Orchestrierung für verteilte Schreibvorgänge
 
 - **Status:** Akzeptiert
-- **Datum:** 2026-04-24
+- **Datum:** 2026-04-24 (aktualisiert 2026-04-24 um Resilienz-Spezifikation)
 
 ## Kontext
 
@@ -62,6 +62,31 @@ Die Implementierung lebt in:
 - Drei WebClient-Adapter in `de.bafa.bff.adapter.client.*AnnouncementWriteClient`
 - Pro Service einen `AnnouncementController` mit POST (Write) + DELETE
   (Compensate)
+- Pro Service ein in-memory Store (`AnnouncementSubscriptionStore`,
+  `AnnouncementBroadcastStore`, `AnnouncementActivityStore`) mit
+  **idempotentem Upsert** (`putIfAbsent`) — duplicate POSTs mit derselben
+  `announcementId` liefern den ursprünglichen Datensatz, nicht zweimal.
+
+## Resilienz-Spezifikation
+
+Jeder Forward-Step der Saga ist durch zwei koordinierte Safety-Nets geschützt:
+
+| Mechanismus           | Wert                         | Filterregel                                                                  |
+|-----------------------|------------------------------|------------------------------------------------------------------------------|
+| Per-Step-Timeout      | 5 s                          | TimeoutException wird als transient klassifiziert                             |
+| Retry mit Backoff     | 2 Versuche, 200 ms Start     | nur bei transienten Fehlern: TimeoutException, WebClientRequestException, 5xx |
+| Kompensations-Timeout | 5 s                          | kein Retry — Kompensation ist Best-Effort                                     |
+
+Die Klassifikator-Methode `DistributedWriteSagaOrchestrator.isTransient` ist
+package-private getestet. Permanente Fehler (4xx-Responses, Validierungsfehler,
+Programmierfehler) bypass-en den Retry bewusst — ein Retry auf eine
+Validierungs-Response ist reine Latenz, keine Reparatur.
+
+Der Retry funktioniert zusammen mit der Store-Idempotenz: ein Retry nach
+erfolgreich geschriebenem Forward-Step aber verlorener Response erzeugt keine
+Duplikate, weil das Downstream-Service den bestehenden Datensatz
+zurückliefert statt zu überschreiben. Das ist der Vertrag, den die drei
+`save()`-Methoden mit `putIfAbsent` einhalten.
 
 ## Konsequenzen
 
@@ -85,27 +110,34 @@ Die Implementierung lebt in:
 
 ### Negativ
 
-- **In-Memory-Store in den Services.** Die Demo hält Subscription-/
-  Broadcast-/Activity-Datensätze in `ConcurrentHashMap`s pro Service-
-  Instanz. Kompensation funktioniert damit nur, wenn dieselbe Instanz den
-  Write und den Compensate entgegengenommen hat. Für ein horizontal
-  skalierendes Setup muss der Store durch einen persistenten Backing-Store
-  ersetzt werden (JPA/Redis) — üblicherweise mit einer Idempotency-Map,
-  die `announcementId`-Duplicate-Writes erkennt.
-- **Kein globales Saga-Timeout.** Einzelne WebClient-Calls haben 5 s
-  Timeout (aus dem Aggregator-Pfad übernommen), der Gesamt-Saga-Run ist
-  aber nicht umklammert. Bei hängender Kompensation hängt der
-  BFF-Request. Für Produktion: `timeout(Duration.ofSeconds(30))` auf das
-  Top-Level-`Mono` legen.
-- **Kein Retry.** Vorüberschehende Fehler (Network-Blip) werden sofort als
-  Kompensations-Auslöser behandelt. Ein produktives Setup würde einen
-  idempotenten Retry mit Exponential-Backoff vorschalten (z. B. über
-  `Retry.backoff(...)` von Reactor), bevor kompensiert wird.
+- **Single-Instance-Store.** Idempotenz ist über `putIfAbsent` *pro
+  Service-Instanz* gelöst, aber nicht über Instanzen hinweg: läuft
+  user-service zweifach und landet der Retry auf einer anderen Instanz, sieht
+  diese die `announcementId` nicht und schreibt dennoch einen zweiten
+  Datensatz. Für ein horizontal skalierendes Setup wird der
+  `ConcurrentHashMap` durch einen shared Backing-Store ersetzt (Redis —
+  steht ohnehin im Stack —, oder JPA + Postgres). Der Idempotenz-Vertrag
+  der `save()`-Methode bleibt identisch, nur das Backend wechselt. Das
+  Template lässt diesen Schritt bewusst offen, um die Persistenz-
+  Agnostik (siehe Confluence-Doc §7.3) zu halten.
+- **Kein globales Saga-Timeout.** Jeder Forward-Step hat 5 s Step-Timeout,
+  ein Top-Level-Saga-Wrap ist bewusst nicht gesetzt: ein `.timeout()` auf
+  das Top-Level-`Mono` würde mid-flight auch laufende Kompensationen
+  abbrechen und damit das Best-Effort-Prinzip untergraben. Schutz vor
+  runaway-Sagas gibt die Summe der Step-Timeouts: worst-case 3 Steps ×
+  (1 + 2) Versuche × 5 s ≈ 45 s, plus Backoff. Wer ein strikteres Budget
+  braucht, setzt das im Ingress/Gateway.
 - **Kein Event-Sourcing.** Die Saga-State-Machine ist implizit in der
   Methodenfolge kodiert. Für mehr als drei Steps oder verzweigte Workflows
   empfiehlt sich ein explizites State-Machine-Framework (z. B. Axon, Camunda,
   Spring Statemachine) — bewusst nicht im Template, um den Pattern-Kern
   unverdeckt zu zeigen.
+- **Demo-Endpunkt forceFail retryt mit.** `forceFail=true` lässt das Service
+  HTTP 500 werfen, das ist ein transienter Status nach unserem Classifier.
+  Demos sehen daher 3 Anläufe à 200–600 ms, bevor die Kompensation startet
+  — insgesamt ≈ 600 ms Verzögerung vor dem Ergebnis. Didaktisch ist das
+  sogar nützlich (der Retry-Mechanismus ist im Log sichtbar), kostet aber
+  Zeit im Live-Vortrag.
 
 ### Verworfene Alternative: Clientseitige Saga im Browser
 
