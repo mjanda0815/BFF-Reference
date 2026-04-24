@@ -101,4 +101,36 @@ class AnnouncementControllerTest {
         .perform(delete("/api/users/me/announcements/unknown").with(jwt()))
         .andExpect(status().isNotFound());
   }
+
+  /**
+   * Idempotency contract: a retried POST with the same {@code announcementId} returns the
+   * originally stored record unchanged. The BFF's retry loop depends on this — without
+   * idempotency, a retry after a successful write but dropped response would double-book the
+   * subscription.
+   */
+  @Test
+  void duplicatePostReturnsOriginalRecordUnchanged() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/users/me/announcements")
+                .with(jwt().jwt(j -> j.subject("user-1")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"announcementId\":\"ann-idem\",\"message\":\"first\",\"forceFail\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("first"));
+
+    // Duplicate POST with the same id but a different message — server must return the FIRST
+    // record unchanged, not the second one.
+    mockMvc
+        .perform(
+            post("/api/users/me/announcements")
+                .with(jwt().jwt(j -> j.subject("user-2")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"announcementId\":\"ann-idem\",\"message\":\"second\",\"forceFail\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("first"))
+        .andExpect(jsonPath("$.userId").value("user-1"));
+  }
 }

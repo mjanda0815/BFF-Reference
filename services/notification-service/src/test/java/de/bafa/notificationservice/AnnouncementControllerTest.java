@@ -109,4 +109,33 @@ class AnnouncementControllerTest {
         .perform(delete("/api/notifications/me/announcements/unknown").with(jwt()))
         .andExpect(status().isNotFound());
   }
+
+  /**
+   * Idempotency contract: duplicate POST with the same {@code announcementId} returns the
+   * originally stored broadcast unchanged. Required so the BFF saga's retry loop can replay
+   * a transient failure without producing duplicate broadcasts.
+   */
+  @Test
+  void duplicatePostReturnsOriginalRecordUnchanged() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/notifications/me/announcements")
+                .with(jwt().jwt(j -> j.subject("user-1")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"announcementId\":\"ann-idem\",\"title\":\"A\",\"message\":\"first\",\"forceFail\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("first"));
+
+    mockMvc
+        .perform(
+            post("/api/notifications/me/announcements")
+                .with(jwt().jwt(j -> j.subject("user-1")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"announcementId\":\"ann-idem\",\"title\":\"B\",\"message\":\"second\",\"forceFail\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("first"))
+        .andExpect(jsonPath("$.title").value("A"));
+  }
 }

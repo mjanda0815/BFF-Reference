@@ -105,4 +105,32 @@ class AnnouncementControllerTest {
         .perform(delete("/api/activity/me/announcements/unknown").with(jwt()))
         .andExpect(status().isNotFound());
   }
+
+  /**
+   * Idempotency contract: duplicate POST with the same {@code announcementId} returns the
+   * originally stored activity event unchanged. Lets the BFF saga's retry loop replay a
+   * transient failure without producing duplicate activity rows.
+   */
+  @Test
+  void duplicatePostReturnsOriginalRecordUnchanged() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/activity/me/announcements")
+                .with(jwt().jwt(j -> j.subject("user-1")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"announcementId\":\"ann-idem\",\"message\":\"first\",\"forceFail\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resource").value("first"));
+
+    mockMvc
+        .perform(
+            post("/api/activity/me/announcements")
+                .with(jwt().jwt(j -> j.subject("user-1")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"announcementId\":\"ann-idem\",\"message\":\"second\",\"forceFail\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resource").value("first"));
+  }
 }

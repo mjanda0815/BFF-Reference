@@ -16,8 +16,11 @@ import de.bafa.bff.domain.model.SagaStepEntry;
 import de.bafa.bff.domain.port.ActivityAnnouncementWritePort;
 import de.bafa.bff.domain.port.NotificationAnnouncementWritePort;
 import de.bafa.bff.domain.port.UserAnnouncementWritePort;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -262,6 +267,88 @@ class DistributedWriteSagaOrchestratorTest {
                           && SagaStepEntry.STATUS_FAILED.equals(e.status()));
       assertTrue(
           hasFailedCompensation, "log should record the failed compensation for operator review");
+    }
+  }
+
+  @Nested
+  @DisplayName("Resilience: per-step timeout and retry-with-backoff")
+  class Resilience {
+
+    /**
+     * Two transient failures in a row followed by a success must still let the saga reach the
+     * happy path. Exercises {@code Retry.backoff} on transient errors.
+     */
+    @Test
+    @DisplayName("retries transient failures and completes on eventual success")
+    void retriesTransientFailuresAndCompletes() {
+      AtomicInteger userAttempts = new AtomicInteger();
+      when(userPort.subscribe(anyString(), anyString(), eq(false), anyString()))
+          .thenReturn(
+              Mono.defer(
+                  () -> {
+                    int n = userAttempts.incrementAndGet();
+                    return n < 3
+                        ? Mono.error(new TimeoutException("transient " + n))
+                        : Mono.empty();
+                  }));
+      when(notificationPort.publish(anyString(), anyString(), anyBoolean(), anyString()))
+          .thenReturn(Mono.empty());
+      when(activityPort.logAnnouncement(anyString(), anyString(), anyBoolean(), anyString()))
+          .thenReturn(Mono.empty());
+
+      AnnouncementSagaResult result = orchestrator.execute(happyCommand(), "token").block();
+      assertNotNull(result);
+      assertEquals(AnnouncementSagaResult.OUTCOME_SUCCEEDED, result.outcome());
+      assertEquals(3, userAttempts.get(), "expected two retries + one success for the user step");
+    }
+
+    /**
+     * A transient error that persists past the retry budget must fall through to the
+     * compensation path — just like any other forward-step failure would.
+     */
+    @Test
+    @DisplayName("exhausted retries trigger the compensation path")
+    void exhaustedRetriesTriggerCompensation() {
+      when(userPort.subscribe(anyString(), anyString(), eq(false), anyString()))
+          .thenReturn(Mono.error(new TimeoutException("always-down")));
+
+      AnnouncementSagaResult result = orchestrator.execute(happyCommand(), "token").block();
+      assertNotNull(result);
+      // First step never succeeded, so compensations queue is empty → outcome=compensated
+      // but no compensation calls should have been made.
+      assertEquals(AnnouncementSagaResult.OUTCOME_COMPENSATED, result.outcome());
+      verify(userPort, never()).compensate(anyString(), anyString());
+      verify(notificationPort, never()).publish(anyString(), anyString(), anyBoolean(), anyString());
+    }
+
+    /**
+     * Permanent (4xx-class) errors bypass retry — retrying a validation failure is pure latency.
+     * This pins the classifier contract for future readers: only 5xx / timeouts / connection
+     * errors are considered transient.
+     */
+    @Test
+    @DisplayName("isTransient: retry only for timeouts, connection errors and 5xx")
+    void isTransientClassifierContract() {
+      assertTrue(DistributedWriteSagaOrchestrator.isTransient(new TimeoutException("t")));
+      WebClientResponseException fiveHundred =
+          WebClientResponseException.create(
+              HttpStatus.INTERNAL_SERVER_ERROR.value(),
+              "",
+              null,
+              new byte[0],
+              StandardCharsets.UTF_8);
+      assertTrue(DistributedWriteSagaOrchestrator.isTransient(fiveHundred));
+
+      WebClientResponseException badRequest =
+          WebClientResponseException.create(
+              HttpStatus.BAD_REQUEST.value(),
+              "",
+              null,
+              new byte[0],
+              StandardCharsets.UTF_8);
+      assertTrue(!DistributedWriteSagaOrchestrator.isTransient(badRequest));
+      assertTrue(!DistributedWriteSagaOrchestrator.isTransient(new RuntimeException("bug")));
+      assertTrue(!DistributedWriteSagaOrchestrator.isTransient(new IllegalArgumentException()));
     }
   }
 
