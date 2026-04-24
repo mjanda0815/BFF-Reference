@@ -27,6 +27,9 @@ package-lock.json.bak
 .DS_Store
 Thumbs.db
 
+# MS Office temporary lock files (e.g. ~$BFF_Demo_Praesentation.pptx)
+~$*
+
 # Env / secrets
 .env
 .env.local
