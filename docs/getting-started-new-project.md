@@ -283,8 +283,23 @@ BFF-seitig dann:
 6. Root-`pom.xml` → `<modules>` erweitern
 7. `docker-compose.yml` → neuer Service-Eintrag + `depends_on`
 
+**Wenn der neue Service an einer Saga teilnimmt** (Write-Endpoint, der
+aus dem BFF orchestriert wird — Muster in ADR-006):
+
+- Einen dedizierten **Write-Port** (`MeinServiceWritePort`) zusätzlich zum
+  Read-Port anlegen; Read- und Write-Authority nicht in einem Interface
+  mischen.
+- Die `save()`-Methode des Stores **idempotent** implementieren
+  (`putIfAbsent`-Muster wie in den `Announcement*Store`-Klassen). Ohne
+  diese Garantie produziert der BFF-seitige Retry Duplikate.
+- Einen **Compensate**-Endpunkt (`DELETE /...`) neben dem Write-Endpunkt
+  implementieren, damit der Orchestrator die Reverse-Order-Kompensation
+  aufrufen kann.
+
 Tests für den neuen Service inklusive `SecurityConfigTest` übernehmen —
-die 80 %/70 %-JaCoCo-Gates gelten reactor-weit.
+die 80 %/70 %-JaCoCo-Gates gelten reactor-weit. Für Saga-Teilnehmer
+gehört ein **Idempotenz-Test** (duplicate POST = gleicher Datensatz)
+zusätzlich dazu, weil die BFF-Resilienz darauf aufsetzt.
 
 ---
 

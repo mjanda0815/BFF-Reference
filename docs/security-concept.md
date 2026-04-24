@@ -118,6 +118,12 @@ Spring Securitys `CookieCsrfTokenRepository` (mit `withHttpOnlyFalse()`)
 wird gemeinsam mit einem SPA-freundlichen Request-Handler
 (`SpaCsrfTokenRequestHandler`) verwendet. Der Vertrag lautet:
 
+> **Hinweis Write-Endpunkte.** Derselbe Double-Submit-Token schützt die
+> Saga-Endpunkte (`POST /api/announcements`) und jeden künftigen
+> Write-Endpunkt im BFF. Die verteilte Schreib-Saga (ADR-006) führt die
+> Cross-Service-Calls intern mit dem Session-Access-Token — dieser
+> Access-Token verlässt den BFF niemals Richtung Browser.
+
 1. Beim ersten Safe-Request stellt Spring Security ein `XSRF-TOKEN`-Cookie
    aus (nicht `HttpOnly`).
 2. Angulars `HttpClient` ist mit

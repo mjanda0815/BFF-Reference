@@ -55,6 +55,10 @@ Vor `gh pr create`:
 - [ ] Neue oder geänderte Public-APIs haben aktualisiertes JavaDoc
 - [ ] Architekturwirksame Änderungen von einem ADR in `docs/adr/`
   begleitet
+- [ ] **Saga-Teilnehmer**: wenn ein neues oder geändertes Service-
+  Endpunktpaar an der Saga teilnimmt, ist ein Idempotenz-Test (duplicate
+  POST = gleicher Datensatz) Pflicht, ebenso ein Compensate-Endpunkt
+  (`DELETE /...`). Die BFF-Retry-Schleife setzt auf beides auf
 - [ ] Stale Versions-Angaben in der README-Technologie-Matrix
   synchronisiert, falls eine Version angefasst wurde
 - [ ] Commit-Message folgt dem bestehenden Stil: *Was + Warum* in der
