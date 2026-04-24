@@ -4,7 +4,7 @@
 # Stage 2: serve the static bundle behind nginx.
 
 # ---------- build stage ----------
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /workspace
 
@@ -18,7 +18,7 @@ COPY src ./src
 RUN npx ng build --configuration production
 
 # ---------- runtime stage ----------
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 
 # Replace the default site config with our SPA-aware one.
 COPY nginx.conf /etc/nginx/nginx.conf
