@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.5</version>
+        <version>4.0.6</version>
         <relativePath/>
     </parent>
     <groupId>de.bafa</groupId>
@@ -17,9 +17,6 @@
     <properties>
         <java.version>25</java.version>
         <jacoco.version>0.8.14</jacoco.version>
-        <!-- Overrides Spring Boot 4.0.5's pinned Tomcat 11.0.20 which is affected by
-             CVE-2026-34483/34486/34487/34500. Revisit on each Boot patch release. -->
-        <tomcat.version>11.0.21</tomcat.version>
     </properties>
     <dependencies>
         <dependency>
