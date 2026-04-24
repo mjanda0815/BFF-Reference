@@ -68,7 +68,6 @@ type SagaView =
         </label>
         <button
           type="button"
-          class="primary"
           data-test-id="saga-run"
           (click)="run()"
           [disabled]="inFlight()"
@@ -81,21 +80,28 @@ type SagaView =
         </button>
       </div>
 
-      @if (outcome(); as o) {
-        <p class="outcome" [ngClass]="'outcome--' + o">
-          Ergebnis:
-          <strong data-test-id="saga-outcome">{{ outcomeLabel(o) }}</strong>
-          <span class="outcome__id" data-test-id="saga-announcement-id">
-            announcementId: {{ announcementId() }}
-          </span>
-        </p>
-      }
-
-      @if (errorMessage(); as msg) {
-        <p class="outcome outcome--failed" data-test-id="saga-error">
-          Request fehlgeschlagen: {{ msg }}
-        </p>
-      }
+      <!--
+        role="status" + aria-live="polite" ensures screen-reader users hear the
+        saga outcome without focus being stolen (cf. BITV 2.0 / WCAG 2.1 AA
+        4.1.3). The region is permanently rendered (empty when idle) so the
+        live-region announcement also fires on the first result.
+      -->
+      <div class="result-region" role="status" aria-live="polite">
+        @if (outcome(); as o) {
+          <p class="outcome" [ngClass]="'outcome--' + o">
+            Ergebnis:
+            <strong data-test-id="saga-outcome">{{ outcomeLabel(o) }}</strong>
+            <span class="outcome__id" data-test-id="saga-announcement-id">
+              announcementId: {{ announcementId() }}
+            </span>
+          </p>
+        }
+        @if (errorMessage(); as msg) {
+          <p class="outcome outcome--failed" data-test-id="saga-error">
+            Request fehlgeschlagen: {{ msg }}
+          </p>
+        }
+      </div>
 
       <h3>Ausführungsprotokoll (vom BFF)</h3>
       @if (entries().length === 0) {
@@ -195,6 +201,30 @@ type SagaView =
         color: #7f1d1d;
         border: 1px solid #fca5a5;
       }
+      /*
+       * Dark-mode variants. The light-mode pastel triple (green/amber/red)
+       * gets replaced with desaturated surfaces and bright text so WCAG AA
+       * contrast holds against the dark app background (see styles.css
+       * prefers-color-scheme block). Matches the rest of the dashboard,
+       * which the README promises does not regress in dark mode.
+       */
+      @media (prefers-color-scheme: dark) {
+        .outcome--succeeded {
+          background: #14532d;
+          color: #86efac;
+          border-color: #166534;
+        }
+        .outcome--compensated {
+          background: #78350f;
+          color: #fdba74;
+          border-color: #9a3412;
+        }
+        .outcome--failed {
+          background: #7f1d1d;
+          color: #fca5a5;
+          border-color: #991b1b;
+        }
+      }
       .outcome__id {
         display: block;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -234,6 +264,18 @@ type SagaView =
       }
       .empty {
         color: var(--color-text-muted);
+      }
+      @media (prefers-color-scheme: dark) {
+        .row--compensation {
+          background: rgba(234, 88, 12, 0.12);
+        }
+        .status--failed td:nth-child(4) {
+          color: #fca5a5;
+        }
+        .status--succeeded td:nth-child(4),
+        .status--compensated td:nth-child(4) {
+          color: #86efac;
+        }
       }
     `,
   ],
