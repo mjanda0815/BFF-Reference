@@ -37,6 +37,16 @@ type SagaView =
  * DistributedWriteSagaOrchestrator on the server. The architectural contrast
  * against a client-side orchestrator (see the slide deck's No-BFF variant) is
  * the whole point of showing this saga in the reference.
+ *
+ * Für die Übernahme in ein neues Produkt:
+ *   - Dispatch-Payload und Ergebnis-Rendering sind das einzige, was hier
+ *     produktspezifisch ist. Die fachliche Command-Form (Message-Eingabe,
+ *     Fail-At-Dropdown) durch das eigene Kommando ersetzen.
+ *   - Der Log-Render-Teil bleibt unverändert, solange der BFF das gleiche
+ *     SagaStepEntry-Schema liefert. Pattern: SPA übernimmt keine
+ *     Workflow-Semantik, nur Präsentation.
+ *   - Die aria-live-Region muss erhalten bleiben, damit Screen-Reader-User
+ *     Fortschritt mitbekommen (WCAG 2.1 AA 4.1.3).
  */
 @Component({
   selector: 'app-saga-panel',

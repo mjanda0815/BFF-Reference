@@ -58,6 +58,34 @@ import reactor.util.retry.Retry;
  * <p>Compensations use the same per-step timeout but <b>no retry</b>: compensation is
  * intentionally best-effort; retry loops there would lengthen the request and rarely help —
  * the partial-failure outcome is the signal operators act on.
+ *
+ * <h2>Für die Übernahme in ein neues Produkt</h2>
+ *
+ * <p>Dieser Orchestrator ist das Muster, wenn ein neues Produkt einen eigenen verteilten
+ * Schreibvorgang braucht. Typische Anpassungen:
+ *
+ * <ul>
+ *   <li><b>Fachliche Ports ersetzen</b>. Statt der drei Announcement-Ports die eigenen
+ *       Schritt-Ports einziehen (z. B. {@code OrderValidationPort},
+ *       {@code InventoryReservationPort}, …). Die Ports bleiben klein und klar
+ *       Forward-/Compensate-strukturiert.
+ *   <li><b>Step-Reihenfolge festlegen</b>. Die drei {@code runForwardStep(...)}-Aufrufe
+ *       einfach durch die Produkt-Steps ersetzen; Reihenfolge = Abhängigkeitsreihenfolge.
+ *   <li><b>Resilienz-Konstanten justieren</b>. {@link #FORWARD_STEP_TIMEOUT} +
+ *       {@link #FORWARD_RETRY_ATTEMPTS} + {@link #FORWARD_RETRY_INITIAL_BACKOFF} sind bewusst
+ *       package-private und konstant. Wer produktspezifisch tunen will, macht daraus
+ *       {@code @ConfigurationProperties}-Werte und dokumentiert die neuen Properties im
+ *       Abschnitt {@code 9} der Confluence-Doku.
+ *   <li><b>Store-Idempotenz auf Service-Seite wahren</b>. Der Retry ist nur dann sicher,
+ *       wenn die Services den gleichen Write bei gleichem Key nicht doppelt ausführen. Die
+ *       {@code Announcement*Store}-Klassen zeigen das mit {@code putIfAbsent}. Bei einem
+ *       Wechsel auf JPA: {@code @Id}-Konflikte in Upserts korrekt behandeln.
+ * </ul>
+ *
+ * <p>Nicht anfassen, wenn möglich: die Kompensations-Schleife in
+ * {@link #compensate(SagaExecution, String, String, Throwable)}. Sie implementiert den
+ * Best-Effort-Vertrag „alle Kompensationen versuchen, aber Teilfehler im Ergebnis sichtbar
+ * machen", der in ADR-006 als tragende Eigenschaft festgehalten ist.
  */
 @Service
 public class DistributedWriteSagaOrchestrator {

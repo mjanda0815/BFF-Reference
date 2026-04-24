@@ -12,7 +12,21 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-/** WebClient-backed adapter for the notification-service announcement write endpoints. */
+/**
+ * WebClient-backed adapter for the notification-service announcement write endpoints.
+ *
+ * <p>Mirrors {@link UserAnnouncementWriteClient} in shape and contract — the only difference is
+ * the URL path and the additional {@code title} field sent in the body. If you add another
+ * saga participant in a forked product, this class is the copy-and-adjust template for the
+ * write path: swap the port interface, the {@code @Qualifier} and the two URIs, leave the
+ * rest alone.
+ *
+ * <p><b>Für die Übernahme in ein neues Produkt:</b> Die Timeout- und Retry-Semantik sitzt
+ * nicht hier, sondern im {@code DistributedWriteSagaOrchestrator}. Dieser Adapter bleibt
+ * bewusst dumm — er sendet einen POST bzw. einen DELETE und reicht Fehler durch. Wer
+ * Request-Level-Logging oder Tracing braucht, hängt es am gemeinsamen {@code WebClient}-Bean
+ * in {@code WebClientConfig} an, damit alle drei Write-Adapter gleich behandelt werden.
+ */
 @Component
 public class NotificationAnnouncementWriteClient implements NotificationAnnouncementWritePort {
 

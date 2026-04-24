@@ -17,6 +17,12 @@ import {
  * `withCredentials: true` is redundant thanks to the global auth interceptor,
  * but kept explicit for didactic symmetry with DashboardService — a reader
  * copying this service should see the contract in one place.
+ *
+ * Für die Übernahme in ein neues Produkt:
+ *   - Pfad ('/api/announcements') gegen den produktspezifischen Endpoint
+ *     austauschen. Payload-Typ anpassen.
+ *   - Weitere Logik NICHT hier einbauen (kein Retry, kein Error-Mapping).
+ *     Das ist bewusst so: die SPA bleibt dünn, Resilienz sitzt im BFF.
  */
 @Injectable({ providedIn: 'root' })
 export class AnnouncementService {
