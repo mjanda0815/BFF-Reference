@@ -4,6 +4,19 @@ Dieses Dokument beschreibt die Architektur des BFF-Referenzprojekts: die
 Komponenten, wie sie kommunizieren, und die drei zentralen Datenflüsse
 (Login, API-Aufruf und Logout).
 
+> **Begleitmaterial.** Die zugrunde liegende Architekturentscheidung — wann
+> ein BFF gegenüber „Direct-to-Service" die bessere Wahl ist — ist in der
+> Folienpräsentation [`../BFF_Demo_Praesentation.pptx`](../BFF_Demo_Praesentation.pptx)
+> für Entscheider, Architekten und Full-Stack-Entwickler aufbereitet. Dieses
+> Dokument setzt die Entscheidung als gegeben voraus und konzentriert sich
+> auf die technische Umsetzung.
+>
+> Die Präsentation vergleicht zwei Architekturvarianten (**No-BFF** mit
+> Browser-seitiger Aggregation/Orchestrierung vs. **With BFF** mit
+> serverseitiger Komposition). Dieses Repository implementiert die
+> **With-BFF**-Variante; die No-BFF-Variante ist als gedanklicher Kontrapunkt
+> in Kapitel 3 & 6 der Folien visualisiert.
+
 ## Komponenten-Überblick
 
 ```mermaid
@@ -43,16 +56,16 @@ flowchart LR
 
 ### Komponenten
 
-| Komponente            | Technologie                     | Verantwortung                                                                   |
-|-----------------------|---------------------------------|---------------------------------------------------------------------------------|
-| Angular-SPA           | Angular 21, Standalone, Signals | Dashboard rendern, keine Auth-Logik, kein Token-Handling                        |
-| nginx                 | nginx alpine                    | SPA ausliefern, `/api`, `/login`, `/logout`, `/oauth2` zum BFF reverse-proxyen  |
-| BFF                   | Spring Boot 3 WebFlux           | OAuth2-Client, Session, CSRF, parallele Aggregation                             |
-| Keycloak              | Keycloak 26                     | OIDC Identity Provider, JWKS-Endpunkt                                           |
-| Redis                 | Redis 7 alpine                  | Session-Store (`spring-session-data-redis`)                                     |
-| user-service          | Spring Boot 3 Resource Server   | Profildaten; validiert JWT gegen Keycloak-JWKS                                  |
-| notification-service  | Spring Boot 3 Resource Server   | Benachrichtigungen; gleiche JWT-Validierung                                     |
-| activity-service      | Spring Boot 3 Resource Server   | Aktivitätsereignisse; gleiche JWT-Validierung                                   |
+| Komponente            | Technologie                                 | Verantwortung                                                                   |
+|-----------------------|---------------------------------------------|---------------------------------------------------------------------------------|
+| Angular-SPA           | Angular 21, Standalone, Signals (Node 22 build) | Dashboard rendern, keine Auth-Logik, kein Token-Handling                        |
+| nginx                 | nginx 1.29 alpine                           | SPA ausliefern, `/api`, `/login`, `/logout`, `/oauth2` zum BFF reverse-proxyen  |
+| BFF                   | Spring Boot 4 WebFlux, Java 25              | OAuth2-Client, Session, CSRF, parallele Aggregation                             |
+| Keycloak              | Keycloak 26.6                               | OIDC Identity Provider, JWKS-Endpunkt                                           |
+| Redis                 | Redis 8 alpine                              | Session-Store (`spring-session-data-redis`)                                     |
+| user-service          | Spring Boot 4 Resource Server (Java 25)     | Profildaten; validiert JWT gegen Keycloak-JWKS                                  |
+| notification-service  | Spring Boot 4 Resource Server (Java 25)     | Benachrichtigungen; gleiche JWT-Validierung                                     |
+| activity-service      | Spring Boot 4 Resource Server (Java 25)     | Aktivitätsereignisse; gleiche JWT-Validierung                                   |
 
 ### Hexagonales Layout (BFF)
 

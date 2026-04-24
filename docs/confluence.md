@@ -105,14 +105,14 @@ soll die Entscheidungen verstehen — nicht nur abtippen.
 
 | Komponente | Technologie | Rolle |
 |---|---|---|
-| **BFF** | Spring Boot 3, WebFlux, Java 21 | OIDC-Client, Session-Management, CSRF, Aggregation |
-| **user-service** | Spring Boot 3, Resource Server | Profildaten, JWT-Validierung |
-| **notification-service** | Spring Boot 3, Resource Server | Benachrichtigungen, JWT-Validierung |
-| **activity-service** | Spring Boot 3, Resource Server | Aktivitäten-/Audit-Log, JWT-Validierung |
-| **Keycloak** | Keycloak 26 | Identity Provider, JWKS |
-| **Redis** | Redis 7 | Session-Store (`spring-session-data-redis`) |
-| **Frontend** | Angular 21 | Token-freier SPA-Client |
-| **nginx** | nginx | Statisches SPA-Hosting + Reverse-Proxy |
+| **BFF** | Spring Boot 4, WebFlux, Java 25 LTS | OIDC-Client, Session-Management, CSRF, Aggregation |
+| **user-service** | Spring Boot 4, Resource Server, Java 25 | Profildaten, JWT-Validierung |
+| **notification-service** | Spring Boot 4, Resource Server, Java 25 | Benachrichtigungen, JWT-Validierung |
+| **activity-service** | Spring Boot 4, Resource Server, Java 25 | Aktivitäten-/Audit-Log, JWT-Validierung |
+| **Keycloak** | Keycloak 26.6 | Identity Provider, JWKS |
+| **Redis** | Redis 8 | Session-Store (`spring-session-data-redis`) |
+| **Frontend** | Angular 21 (Node 22 Build) | Token-freier SPA-Client |
+| **nginx** | nginx 1.29 alpine | Statisches SPA-Hosting + Reverse-Proxy |
 
 ---
 

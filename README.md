@@ -20,6 +20,21 @@ alles mit einem einzigen Befehl lokal starten lässt.
 > Pattern erklärt — nicht nur diese README, sondern auch den Quellcode
 > lesen.
 
+**Für Entscheider und neue Joiner — erster Einstieg:**
+
+- 🎞️ **[`BFF_Demo_Praesentation.pptx`](BFF_Demo_Praesentation.pptx)** —
+  Folien der Architektur-Session: wann BFF statt Direct-to-Service, was sich
+  für Entscheider/Architekten/Full-Stack-Entwickler ändert, No-BFF vs.
+  With-BFF im direkten Vergleich.
+- 🚀 **[`docs/getting-started-new-project.md`](docs/getting-started-new-project.md)** —
+  Schritt-für-Schritt-Anleitung, um aus diesem Template ein neues Produkt
+  (BFF + Angular 21 + mehrere Backend-Services) aufzusetzen. Inkl.
+  Monorepo-vs.-Polyrepo-Diskussion.
+- 🏗️ **[`docs/architecture.md`](docs/architecture.md)** — technische Tiefe
+  zur *With-BFF*-Variante, die dieses Repo implementiert.
+- 🔐 **[`docs/security-concept.md`](docs/security-concept.md)** — Threat-Modell
+  und Gegenmaßnahmen auf einen Blick.
+
 ---
 
 ## Architektur-Überblick
@@ -72,12 +87,12 @@ bff-reference/
 ├── docker-compose.yml          # kompletter Stack mit einem Befehl
 ├── .env.example                # alle konfigurierbaren Werte
 ├── keycloak/                   # Realm-Export + Keycloak-Dockerfile
-├── bff/                        # Spring Boot 3 BFF (WebFlux) — de.bafa.bff
+├── bff/                        # Spring Boot 4 BFF (WebFlux, Java 25) — de.bafa.bff
 ├── services/
-│   ├── user-service/           # Spring Boot 3 Resource Server — de.bafa.userservice
-│   ├── notification-service/   #                                 de.bafa.notificationservice
-│   └── activity-service/       #                                 de.bafa.activityservice
-├── frontend/                   # Angular 21 SPA, von nginx ausgeliefert
+│   ├── user-service/           # Spring Boot 4 Resource Server (Java 25) — de.bafa.userservice
+│   ├── notification-service/   #                                           de.bafa.notificationservice
+│   └── activity-service/       #                                           de.bafa.activityservice
+├── frontend/                   # Angular 21 SPA (Node 22 build, nginx 1.29 runtime)
 └── docs/
     ├── architecture.md
     ├── security-concept.md
@@ -90,12 +105,35 @@ bff-reference/
 ## Voraussetzungen
 
 - Docker und Docker Compose (Compose v2)
-- Java 21 LTS  *(nur nötig, wenn `mvn verify` außerhalb von Docker laufen
-  soll)*
+- Java 25 LTS  *(nur nötig, wenn `mvn verify` außerhalb von Docker laufen
+  soll; die Docker-Images bringen ihr eigenes JDK mit)*
 - Maven 3.9+   *(dito)*
-- Node 20+     *(nur nötig für `ng build` außerhalb von Docker)*
+- Node 22+     *(nur nötig für `ng build` außerhalb von Docker)*
 
 Der Quickstart unten braucht **nur Docker**.
+
+### Technologie-Matrix (aktueller Stand)
+
+Dieser Stand ist reactor-weit getestet (`mvn verify` + `trivy fs`
++ OWASP Dependency-Check). Bumps werden per Dependabot weekly vorgeschlagen
+(siehe [`.github/dependabot.yml`](.github/dependabot.yml)).
+
+| Bereich                    | Version                           |
+|----------------------------|-----------------------------------|
+| Java                       | **25** LTS (Temurin)              |
+| Spring Boot                | **4.0.6**                         |
+| Tomcat embedded            | 11.0.21 (via Boot-BOM)            |
+| Testcontainers             | 2.0.5                             |
+| JaCoCo                     | 0.8.14                            |
+| OWASP Dependency-Check     | 12.2.1                            |
+| Angular                    | **21.2.x**                        |
+| TypeScript                 | 5.9.x  *(TS 6 wartet auf Angular 22 GA)* |
+| zone.js                    | 0.16.x                            |
+| Node (Build-Image)         | 22-alpine (LTS "Jod")             |
+| nginx (Runtime-Image)      | 1.29-alpine                       |
+| eclipse-temurin JRE        | 25-jre-alpine                     |
+| Redis                      | 8-alpine                          |
+| Keycloak                   | 26.6.1                            |
 
 ---
 
