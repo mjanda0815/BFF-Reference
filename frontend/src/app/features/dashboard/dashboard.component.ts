@@ -10,6 +10,7 @@ import { DashboardData } from '../../core/models/dashboard.model';
 import { UserProfileWidgetComponent } from './user-profile-widget/user-profile-widget.component';
 import { NotificationsWidgetComponent } from './notifications-widget/notifications-widget.component';
 import { ActivityWidgetComponent } from './activity-widget/activity-widget.component';
+import { SagaPanelComponent } from './saga-panel/saga-panel.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -18,6 +19,7 @@ import { ActivityWidgetComponent } from './activity-widget/activity-widget.compo
     UserProfileWidgetComponent,
     NotificationsWidgetComponent,
     ActivityWidgetComponent,
+    SagaPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -64,6 +66,10 @@ import { ActivityWidgetComponent } from './activity-widget/activity-widget.compo
       @if (errorMessage()) {
         <button type="button" (click)="reload()">Try again</button>
       }
+
+      <section class="saga-section" aria-label="Distributed write saga demo">
+        <app-saga-panel />
+      </section>
     </main>
   `,
   styles: [
@@ -107,6 +113,9 @@ import { ActivityWidgetComponent } from './activity-widget/activity-widget.compo
         display: grid;
         gap: var(--space-4);
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      .saga-section {
+        margin-top: var(--space-4);
       }
     `,
   ],
