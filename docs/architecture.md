@@ -6,7 +6,7 @@ Komponenten, wie sie kommunizieren, und die drei zentralen Datenflüsse
 
 > **Begleitmaterial.** Die zugrunde liegende Architekturentscheidung — wann
 > ein BFF gegenüber „Direct-to-Service" die bessere Wahl ist — ist in der
-> Folienpräsentation [`../BFF_Demo_Praesentation.pptx`](../BFF_Demo_Praesentation.pptx)
+> Folienpräsentation [`BFF_Demo_Praesentation.pptx`](BFF_Demo_Praesentation.pptx)
 > für Entscheider, Architekten und Full-Stack-Entwickler aufbereitet. Dieses
 > Dokument setzt die Entscheidung als gegeben voraus und konzentriert sich
 > auf die technische Umsetzung.

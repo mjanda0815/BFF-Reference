@@ -22,7 +22,7 @@ alles mit einem einzigen Befehl lokal starten lässt.
 
 **Für Entscheider und neue Joiner — erster Einstieg:**
 
-- 🎞️ **[`BFF_Demo_Praesentation.pptx`](BFF_Demo_Praesentation.pptx)** —
+- 🎞️ **[`docs/BFF_Demo_Praesentation.pptx`](docs/BFF_Demo_Praesentation.pptx)** —
   Folien der Architektur-Session: wann BFF statt Direct-to-Service, was sich
   für Entscheider/Architekten/Full-Stack-Entwickler ändert, No-BFF vs.
   With-BFF im direkten Vergleich.
