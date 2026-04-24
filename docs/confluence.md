@@ -486,7 +486,15 @@ darf nicht gesenkt werden.
 
 - [Architektur-Übersicht](architecture.md) — Sequenzdiagramme, Komponentensicht
 - [Sicherheits-Konzept](security-concept.md) — Threat-Modell, Cookie-Flags, Logout-Chain
+- [Getting-Started für neue Projekte](getting-started-new-project.md) —
+  Schritt-für-Schritt-Bootstrap inkl. Namespace-Refactoring und der
+  Monorepo-vs.-Polyrepo-Diskussion
 - [ADR-Verzeichnis](adr/) — Entscheidungs-Log
+- **Folien der Architektur-Session**: [`BFF_Demo_Praesentation.pptx`](BFF_Demo_Praesentation.pptx)
+  im Ordner `docs/` — die Entscheider-Variante „Wann BFF, wann nicht" mit
+  direktem Vergleich No-BFF/With-BFF. Die `.pptx`-Datei liegt bewusst in
+  `docs/` (nicht im Repo-Root), damit alle dokumentarischen Artefakte
+  gemeinsam versioniert werden; die README verlinkt sie prominent.
 - Im Code: Jede Klasse hat Class-Level-JavaDoc mit Rolle, Pattern,
   Copy-Guidance. Start am besten bei:
   - `de.bafa.bff.BffApplication`
