@@ -95,6 +95,7 @@ soll die Entscheidungen verstehen — nicht nur abtippen.
 |---|---|---|
 | **Backend-for-Frontend** | `de.bafa.bff` (gesamt) | Tokens bleiben server-seitig, SPA spricht nur Session-Cookies. |
 | **Parallele Aggregation** | `DashboardAggregationService` | Ein SPA-Request = ein BFF-Response aus 3 Quellen via `Mono.zip`. |
+| **Verteilte Write-Saga** | `DistributedWriteSagaOrchestrator` | Ein SPA-Kommando = ein BFF-Workflow über 3 Services mit Kompensation in Reverse-Order. Siehe ADR-006. |
 | **Hexagonale Architektur** | `domain/port` + `adapter/client` | Application-Layer kennt nur Ports (Interfaces), nie WebClient. |
 | **Double-Submit-CSRF** | `SecurityConfig#csrfTokenRepository` | Cookie-Auth braucht expliziten CSRF-Schutz. |
 | **Session-Token-Lifecycle** | `SessionTokenService` | Access/Refresh-Token ausschließlich in Redis. |
@@ -353,6 +354,7 @@ nachvollziehen können.
 | [ADR-003](adr/ADR-003-redis-session-store.md) | Warum Redis als Session-Store? |
 | [ADR-004](adr/ADR-004-webflux-aggregation.md) | Warum WebFlux für parallele Aggregation? |
 | [ADR-005](adr/ADR-005-maven-build.md) | Warum Maven statt Gradle? |
+| [ADR-006](adr/ADR-006-write-saga.md) | Warum serverseitige Saga für verteilte Writes? |
 
 ---
 

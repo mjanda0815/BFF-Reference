@@ -177,6 +177,14 @@ Die Vorteile, die wir zeigen wollen:
   drei Microservices. Der Fan-out im BFF (`Mono.zip`, parallel, Timeout
   pro Service, fehlertolerant) hält die SPA dumm und die Netzwerk-
   Round-Trips gering.
+- **Orchestrierung komplexer Writes.** Für eine Ankündigung, die über
+  `user-`, `notification-` und `activity-service` konsistent gesetzt
+  werden muss, fährt der BFF eine **Saga mit expliziter Kompensation**
+  in Reverse-Order. Die SPA sendet *ein* Kommando und rendert das
+  zurückgegebene Ausführungsprotokoll verbatim — kein clientseitiger
+  Workflow-State, keine Kompensations-Logik im Browser. Siehe
+  [ADR-006](docs/adr/ADR-006-write-saga.md) und das Demo-Panel im
+  Dashboard (`POST /api/announcements`).
 - **Starke CSRF-Position.** Weil die SPA mit Cookies authentifiziert, wird
   `SameSite=Lax` mit dem Double-Submit-CSRF-Token von Spring Security
   kombiniert. Die Begründung liegt in
@@ -408,6 +416,7 @@ Barrierefreiheit wird als harte Anforderung behandelt, nicht als
 | [ADR-003](docs/adr/ADR-003-redis-session-store.md) | Warum Redis als Session-Store |
 | [ADR-004](docs/adr/ADR-004-webflux-aggregation.md) | Warum WebFlux für parallele Aggregation |
 | [ADR-005](docs/adr/ADR-005-maven-build.md) | Warum Maven statt Gradle |
+| [ADR-006](docs/adr/ADR-006-write-saga.md) | Warum eine serverseitige Saga für verteilte Writes |
 
 ---
 
