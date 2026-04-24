@@ -7,6 +7,11 @@ import jakarta.validation.constraints.NotBlank;
  *
  * <p>The {@code announcementId} is shared across services for compensation. {@code forceFail}
  * triggers a reproducible 500 to exercise the compensation path.
+ *
+ * <p><b>Blueprint-Hinweis:</b> Strukturgleich zu {@code AnnouncementCommand} in
+ * {@code user-service} und {@code notification-service}. Wer einen weiteren Saga-Teilnehmer
+ * anlegt, kopiert diesen Record, gibt ihm die fachlichen Felder des neuen Services und lässt
+ * {@code announcementId} + {@code forceFail} unverändert.
  */
 public record AnnouncementCommand(
     @NotBlank String announcementId, String message, boolean forceFail) {}

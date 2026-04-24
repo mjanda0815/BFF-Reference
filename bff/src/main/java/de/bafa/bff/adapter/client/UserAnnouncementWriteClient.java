@@ -17,12 +17,20 @@ import reactor.core.publisher.Mono;
  *
  * <p>Uses the shared {@link WebClientConfig#USER_SERVICE} WebClient bean — same timeouts, same
  * error translation as every other user-service call in the BFF. The saga-level concerns
- * (ordering, compensation) live in the orchestrator; this class only knows HTTP.
+ * (ordering, compensation, retry, timeout) live in the orchestrator; this class only knows
+ * HTTP.
  *
  * <p><b>Scalability note for downstream adoption.</b> The reference uses in-memory state in the
  * downstream services, so compensation only works when the write <em>and</em> the delete hit
  * the same instance. A real multi-replica deployment replaces the in-memory map with a
- * persistent store (Postgres/Redis) and an idempotency key per saga id.
+ * persistent store (Postgres/Redis) — the idempotency contract (duplicate POST returns the
+ * original record) already holds at the store interface level, so only the storage backend
+ * changes.
+ *
+ * <p><b>Für die Übernahme in ein neues Produkt:</b> Dieser Adapter ist der Ausgangspunkt, wenn
+ * ein neues Produkt einen eigenen Saga-Schritt braucht. Kopieren, URIs und Port-Typ austauschen,
+ * fertig. Fehler- und Retry-Handling muss hier <em>nicht</em> angepasst werden — der
+ * Orchestrator unterscheidet über seinen Transient-Classifier selbst, ob retried wird.
  */
 @Component
 public class UserAnnouncementWriteClient implements UserAnnouncementWritePort {
