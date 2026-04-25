@@ -33,7 +33,12 @@ RUN rm -f /usr/share/nginx/html/index.nginx-debian.html || true
 
 EXPOSE 80
 
+# Pin the probe to 127.0.0.1 so it never tries IPv6: nginx in this image binds
+# only to 0.0.0.0:80, but BusyBox wget would otherwise resolve "localhost" to
+# [::1]:80 and the healthcheck would fail "Connection refused" on a perfectly
+# healthy nginx (Docker would mark the container unhealthy even though it
+# serves HTTP 200 fine on the host port).
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-    CMD wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1
+    CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
