@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import de.bafa.bff.application.DashboardAggregationService;
 import de.bafa.bff.application.SessionTokenService;
 import de.bafa.bff.domain.model.DashboardData;
+import de.bafa.bff.domain.model.DashboardResult;
 import de.bafa.bff.domain.model.NotificationOverview;
 import de.bafa.bff.domain.model.UserProfile;
 import java.util.List;
@@ -39,8 +40,9 @@ class DashboardControllerTest {
     OidcUser principal = mock(OidcUser.class);
     when(principal.getSubject()).thenReturn("u1");
     when(sessionTokenService.currentAccessToken(any(), any())).thenReturn(Mono.just("tok"));
-    DashboardData expected =
+    DashboardData data =
         new DashboardData(UserProfile.empty(), NotificationOverview.empty(), List.of());
+    DashboardResult expected = new DashboardResult(data, List.of());
     when(aggregationService.buildDashboard(anyString(), anyString())).thenReturn(Mono.just(expected));
 
     MockServerWebExchange exchange =
