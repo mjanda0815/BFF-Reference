@@ -2,7 +2,7 @@ package de.bafa.bff.adapter.web;
 
 import de.bafa.bff.application.DashboardAggregationService;
 import de.bafa.bff.application.SessionTokenService;
-import de.bafa.bff.domain.model.DashboardData;
+import de.bafa.bff.domain.model.DashboardResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,7 +44,7 @@ public class DashboardController {
   }
 
   @GetMapping
-  public Mono<ResponseEntity<DashboardData>> dashboard(
+  public Mono<ResponseEntity<DashboardResult>> dashboard(
       @AuthenticationPrincipal OidcUser principal, ServerWebExchange exchange) {
     if (principal == null) {
       return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());

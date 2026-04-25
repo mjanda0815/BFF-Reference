@@ -9,7 +9,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 
 import com.redis.testcontainers.RedisContainer;
 import de.bafa.bff.application.SessionTokenService;
-import de.bafa.bff.domain.model.DashboardData;
+import de.bafa.bff.domain.model.DashboardResult;
 import java.io.IOException;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -116,15 +116,17 @@ class DashboardIT {
         .exchange()
         .expectStatus()
         .isOk()
-        .expectBody(DashboardData.class)
+        .expectBody(DashboardResult.class)
         .value(
-            data -> {
-              assertThat(data.profile().displayName()).isEqualTo("Alice");
-              assertThat(data.profile().role()).isEqualTo("admin");
-              assertThat(data.notifications().unreadCount()).isEqualTo(2);
-              assertThat(data.notifications().items()).hasSize(1);
-              assertThat(data.activity()).hasSize(1);
-              assertThat(data.activity().get(0).action()).isEqualTo("login");
+            result -> {
+              assertThat(result.data().profile().displayName()).isEqualTo("Alice");
+              assertThat(result.data().profile().role()).isEqualTo("admin");
+              assertThat(result.data().notifications().unreadCount()).isEqualTo(2);
+              assertThat(result.data().notifications().items()).hasSize(1);
+              assertThat(result.data().activity()).hasSize(1);
+              assertThat(result.data().activity().get(0).action()).isEqualTo("login");
+              // Execution log must be returned alongside the data so the SPA can render it.
+              assertThat(result.log()).isNotEmpty();
             });
   }
 
@@ -144,13 +146,19 @@ class DashboardIT {
         .exchange()
         .expectStatus()
         .isOk()
-        .expectBody(DashboardData.class)
+        .expectBody(DashboardResult.class)
         .value(
-            data -> {
+            result -> {
               // user-service failed → empty profile fallback
-              assertThat(data.profile().displayName()).isEmpty();
-              assertThat(data.notifications().unreadCount()).isZero();
-              assertThat(data.activity()).isEmpty();
+              assertThat(result.data().profile().displayName()).isEmpty();
+              assertThat(result.data().notifications().unreadCount()).isZero();
+              assertThat(result.data().activity()).isEmpty();
+              // Failed step is recorded in the log so an operator sees what fell back.
+              assertThat(result.log())
+                  .anyMatch(
+                      e ->
+                          "user-service.profile".equals(e.step())
+                              && "failed".equals(e.status()));
             });
   }
 
