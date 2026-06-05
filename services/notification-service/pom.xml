@@ -16,7 +16,7 @@
     <name>notification-service</name>
     <properties>
         <java.version>25</java.version>
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
     </properties>
     <dependencies>
         <dependency>
