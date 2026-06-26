@@ -6,8 +6,9 @@ Redis-basierten Sessions und drei aggregierten Downstream-Microservices.
 
 Ziel dieses Projekts ist es, Enterprise-Architekturmuster durchgängig zu
 demonstrieren — Sicherheit, Session-Handling, parallele Aggregation,
-hexagonale Schichtung, Testabdeckung und Barrierefreiheit — so, dass sich
-alles mit einem einzigen Befehl lokal starten lässt.
+hexagonale Schichtung, Observability (Actuator/Micrometer → Prometheus),
+Testabdeckung und Barrierefreiheit — so, dass sich alles mit einem einzigen
+Befehl lokal starten lässt.
 
 > **Hinweis zum BAFA-Blueprint.** Dieses Repository wird als *Referenz-
 > Template* für neue BAFA-Projekte gepflegt. Alle Java-Packages liegen unter
@@ -134,6 +135,7 @@ Dieser Stand ist reactor-weit getestet (`mvn verify` + `trivy fs`
 | eclipse-temurin JRE        | 25-jre-alpine                     |
 | Redis                      | 8-alpine                          |
 | Keycloak                   | 26.6.1                            |
+| Observability              | Spring Boot Actuator + Micrometer → **Prometheus** |
 
 ---
 
@@ -313,6 +315,17 @@ npx ng build --configuration production
 
 Für interaktive Komponententests führt `npm test` den in `angular.json`
 konfigurierten Karma-/Jest-Harness aus.
+
+---
+
+## Observability
+
+Der BFF ist über **Spring Boot Actuator** und **Micrometer** mit einer
+**Prometheus**-Registry instrumentiert. Laufzeit-Metriken (HTTP-Latenzen,
+JVM, Session-/Downstream-Aufrufe) lassen sich am Endpoint
+`/actuator/prometheus` scrapen und so ohne Codeänderung an ein bestehendes
+Prometheus/Grafana-Monitoring anbinden. Exponiert sind bewusst nur
+`health`, `info` und `prometheus`.
 
 ---
 
